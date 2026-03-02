@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '../../components/UI/Toast';
 import {
   Search,
@@ -14,6 +14,8 @@ import {
   FileText,
   ChevronRight,
 } from 'lucide-react';
+import { isSupabaseReady } from '../../lib/supabase';
+import { adminService } from '../../services/supabase/adminService';
 import { mockDisputes } from '../../data/mockData';
 import type { Dispute } from '../../types';
 
@@ -23,6 +25,30 @@ export default function AdminDisputes() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null);
   const [disputes, setDisputes] = useState(mockDisputes);
+
+  useEffect(() => {
+    if (isSupabaseReady()) {
+      adminService.getAllDisputes().then(data => {
+        if (data.length > 0) {
+          setDisputes(data.map((d: any) => ({
+            id: d.id,
+            orderId: d.order_id,
+            orderTitle: d.order_title || 'Order',
+            raisedBy: { id: d.raised_by, name: d.raised_by_name || 'User', role: d.raised_by_role || 'buyer' },
+            against: { id: d.against_user, name: d.against_name || 'User', role: d.against_role || 'farmer' },
+            reason: d.reason,
+            description: d.description,
+            status: d.status,
+            amount: Number(d.amount || 0),
+            evidence: d.evidence || [],
+            createdAt: d.created_at,
+            resolvedAt: d.resolved_at,
+            resolution: d.resolution,
+          })));
+        }
+      }).catch(() => {});
+    }
+  }, []);
 
   const filteredDisputes = disputes.filter((dispute) => {
     const matchesSearch =

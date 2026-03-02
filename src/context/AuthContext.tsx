@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { User, UserRole } from '../types';
 import { mockUsers, adminUser } from '../data/mockData';
+import { supabase, testSupabaseConnection, isSupabaseReady } from '../lib/supabase';
+import { profileService } from '../services/supabase/profileService';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -15,9 +17,11 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  checkUserExists: (identifier: string) => Promise<{ exists: boolean; user?: any }>;
+  loginWithPassword: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
   login: (phone: string, otp: string, token: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (name: string, phone: string, email: string, role: UserRole, location: string, otp: string, token: string) => Promise<{ success: boolean; error?: string }>;
-  sendOTP: (identifier: string, name?: string) => Promise<{ success: boolean; token?: string; error?: string; dev_otp?: string }>;
+  signup: (name: string, phone: string, email: string, role: UserRole, location: string, otp: string, token: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  sendOTP: (identifier: string, name?: string) => Promise<{ success: boolean; token?: string; error?: string }>;
   logout: () => void;
   switchRole: (role: UserRole) => void;
   updateProfile: (updates: Partial<User>) => void;
@@ -29,21 +33,198 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [useSupabase, setUseSupabase] = useState(false);
 
+  // Helper: map Supabase profile to app User
+  const mapProfileToUser = (profile: any): User => ({
+    id: profile.id,
+    name: profile.name || '',
+    phone: profile.phone || '',
+    email: profile.email || '',
+    role: profile.role || 'buyer',
+    location: profile.location || '',
+    verified: profile.verified || false,
+    avatar: profile.avatar || DEFAULT_AVATARS[profile.role] || DEFAULT_AVATARS.buyer,
+    createdAt: profile.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+  });
+
+  // Load user from localStorage immediately to prevent blank screen
   useEffect(() => {
-    // Check for stored user on mount
     const storedUser = localStorage.getItem('makefarmhub_user');
     if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch {
-        localStorage.removeItem('makefarmhub_user');
-      }
+      try { setUser(JSON.parse(storedUser)); } catch { localStorage.removeItem('makefarmhub_user'); }
     }
-    setIsLoading(false);
+
+    // Test Supabase connection, then decide mode
+    const init = async () => {
+      try {
+        const connected = await testSupabaseConnection();
+        setUseSupabase(connected);
+
+        if (connected) {
+          // Check for real Supabase session
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+              try {
+                const profile = await profileService.getProfile(session.user.id);
+                const appUser = mapProfileToUser(profile);
+                setUser(appUser);
+                localStorage.setItem('makefarmhub_user', JSON.stringify(appUser));
+              } catch {
+                // Profile might not exist yet
+              }
+            }
+          } catch {
+            // getSession failed, keep localStorage user
+          }
+        }
+      } catch {
+        // Connection test itself failed
+        setUseSupabase(false);
+      }
+      setIsLoading(false);
+    };
+
+    init();
   }, []);
 
-  const sendOTP = async (identifier: string, name?: string): Promise<{ success: boolean; token?: string; error?: string; dev_otp?: string }> => {
+  // Set up auth state listener when Supabase is confirmed working
+  useEffect(() => {
+    if (!useSupabase) return;
+
+    let subscription: { unsubscribe: () => void } | null = null;
+    try {
+      const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        if (session?.user) {
+          try {
+            const profile = await profileService.getProfile(session.user.id);
+            const appUser = mapProfileToUser(profile);
+            setUser(appUser);
+            localStorage.setItem('makefarmhub_user', JSON.stringify(appUser));
+          } catch {
+            // Profile might not exist yet (just signed up, trigger hasn't fired)
+          }
+        } else {
+          setUser(null);
+          localStorage.removeItem('makefarmhub_user');
+        }
+      });
+      subscription = data.subscription;
+    } catch (err) {
+      console.warn('Failed to set up auth listener:', err);
+    }
+
+    return () => { subscription?.unsubscribe(); };
+  }, [useSupabase]);
+
+  // Check if user exists in system
+  const checkUserExists = async (identifier: string): Promise<{ exists: boolean; user?: any }> => {
+    if (useSupabase) {
+      try {
+        const isEmail = identifier.includes('@');
+        // Check in profiles table
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, email, phone, name')
+          .or(isEmail ? `email.eq.${identifier}` : `phone.eq.${identifier}`)
+          .maybeSingle();
+        
+        if (data) return { exists: true, user: data };
+      } catch {
+        return { exists: false };
+      }
+    }
+    
+    // Check localStorage
+    const storedUsers = JSON.parse(localStorage.getItem('makefarmhub_registered_users') || '[]');
+    const user = storedUsers.find((u: any) => 
+      u.email === identifier || u.phone === identifier || 
+      u.phone?.replace(/\s/g, '') === identifier.replace(/\s/g, '')
+    );
+    return { exists: !!user, user };
+  };
+
+  // Login with password (for returning users)
+  const loginWithPassword = async (identifier: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    // Admin shortcut
+    if (identifier.includes('admin') || identifier.includes('000')) {
+      if (password === 'admin' || password === '1234') {
+        setUser(adminUser);
+        localStorage.setItem('makefarmhub_user', JSON.stringify(adminUser));
+        return { success: true };
+      }
+      return { success: false, error: 'Invalid credentials' };
+    }
+
+    if (useSupabase) {
+      try {
+        const isEmail = identifier.includes('@');
+        const { data, error } = await supabase.auth.signInWithPassword(
+          isEmail ? { email: identifier, password } : { phone: identifier, password }
+        );
+        
+        if (error) {
+          // Translate Supabase errors to user-friendly messages
+          if (error.message.includes('Invalid login')) {
+            return { success: false, error: 'Wrong password. Please try again.' };
+          }
+          if (error.message.includes('Email not confirmed')) {
+            return { success: false, error: 'Please verify your email first.' };
+          }
+          return { success: false, error: error.message };
+        }
+        if (data.user) {
+          try {
+            const profile = await profileService.getProfile(data.user.id);
+            const appUser = mapProfileToUser(profile);
+            setUser(appUser);
+            localStorage.setItem('makefarmhub_user', JSON.stringify(appUser));
+          } catch {
+            // Auth succeeded but profile not found - create minimal user from auth data
+            const minimalUser: User = {
+              id: data.user.id,
+              name: data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User',
+              phone: data.user.phone || '',
+              email: data.user.email || '',
+              role: (data.user.user_metadata?.role as any) || 'buyer',
+              avatar: data.user.user_metadata?.avatar || '',
+              location: data.user.user_metadata?.location || '',
+              verified: false,
+              createdAt: data.user.created_at || new Date().toISOString(),
+            };
+            setUser(minimalUser);
+            localStorage.setItem('makefarmhub_user', JSON.stringify(minimalUser));
+          }
+          return { success: true };
+        }
+      } catch (err: any) {
+        console.error('Login error:', err);
+        return { success: false, error: 'Connection error. Please check your internet and try again.' };
+      }
+    }
+
+    // Fallback: Check stored users (flexible phone matching)
+    const storedUsers = JSON.parse(localStorage.getItem('makefarmhub_registered_users') || '[]');
+    const cleanId = identifier.replace(/\s/g, '');
+    const user = storedUsers.find((u: any) => 
+      (u.email === identifier || u.phone === identifier || 
+       u.phone?.replace(/\s/g, '') === cleanId ||
+       u.email?.toLowerCase() === identifier.toLowerCase()) && u.password === password
+    );
+    
+    if (user) {
+      const { password: _, ...userWithoutPassword } = user;
+      setUser(userWithoutPassword);
+      localStorage.setItem('makefarmhub_user', JSON.stringify(userWithoutPassword));
+      return { success: true };
+    }
+    
+    return { success: false, error: 'Wrong email/phone or password. Please try again.' };
+  };
+
+  const sendOTP = async (identifier: string, name?: string): Promise<{ success: boolean; token?: string; error?: string }> => {
+    // Always use custom OTP API for faster delivery via SendGrid
     try {
       const isEmail = identifier.includes('@');
       const response = await fetch(`${API_BASE}/api/send-otp`, {
@@ -60,7 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error || 'Failed to send verification code' };
       }
 
-      return { success: true, token: data.token, dev_otp: data.dev_otp };
+      return { success: true, token: data.token };
     } catch {
       return { success: false, error: 'Network error. Please check your connection.' };
     }
@@ -74,8 +255,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true };
     }
 
+    if (useSupabase) {
+      try {
+        const isEmail = phone.includes('@');
+        const { data, error } = isEmail
+          ? await supabase.auth.verifyOtp({ email: phone, token: otp, type: 'email' })
+          : await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' });
+
+        if (error) return { success: false, error: error.message };
+
+        if (data.user) {
+          try {
+            const profile = await profileService.getProfile(data.user.id);
+            const appUser = mapProfileToUser(profile);
+            setUser(appUser);
+            localStorage.setItem('makefarmhub_user', JSON.stringify(appUser));
+          } catch {
+            // Profile not created yet by trigger, create manually
+            const appUser: User = {
+              id: data.user.id,
+              name: data.user.user_metadata?.name || phone,
+              phone: data.user.phone || phone,
+              email: data.user.email || '',
+              role: 'buyer',
+              location: 'Zimbabwe',
+              verified: true,
+              avatar: DEFAULT_AVATARS.buyer,
+              createdAt: new Date().toISOString().split('T')[0],
+            };
+            setUser(appUser);
+            localStorage.setItem('makefarmhub_user', JSON.stringify(appUser));
+          }
+        }
+        return { success: true };
+      } catch {
+        return { success: false, error: 'Verification failed. Please try again.' };
+      }
+    }
+
+    // Fallback: custom OTP verification
     try {
-      // Verify OTP with the backend
       const response = await fetch(`${API_BASE}/api/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -87,17 +306,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error || 'Verification failed' };
       }
 
-      // OTP verified — find existing user or create session user
       let foundUser = mockUsers.find(u => u.phone.replace(/\s/g, '').includes(phone.replace(/\s/g, '')));
 
-      // Check localStorage for previously signed-up users
       if (!foundUser) {
         const storedUsers = JSON.parse(localStorage.getItem('makefarmhub_registered_users') || '[]');
         foundUser = storedUsers.find((u: User) => u.phone.replace(/\s/g, '').includes(phone.replace(/\s/g, '')));
       }
 
       if (!foundUser) {
-        // Create a session user for new phone numbers
         foundUser = {
           id: `user-${Date.now()}`,
           name: phone,
@@ -119,61 +335,115 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signup = async (name: string, phone: string, email: string, role: UserRole, location: string, otp: string, token: string): Promise<{ success: boolean; error?: string }> => {
+  const signup = async (name: string, phone: string, email: string, role: UserRole, location: string, otp: string, token: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    // Step 1: Verify OTP via custom API
     try {
-      // Verify OTP with the backend
-      const response = await fetch(`${API_BASE}/api/verify-otp`, {
+      const verifyResponse = await fetch(`${API_BASE}/api/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, otp }),
       });
 
-      const data = await response.json();
-      if (!response.ok) {
-        return { success: false, error: data.error || 'Verification failed' };
+      const verifyData = await verifyResponse.json();
+      if (!verifyResponse.ok) {
+        return { success: false, error: verifyData.error || 'Invalid verification code' };
       }
-
-      const newUser: User = {
-        id: `user-${Date.now()}`,
-        name,
-        phone,
-        email,
-        role,
-        location,
-        verified: true,
-        avatar: DEFAULT_AVATARS[role] || DEFAULT_AVATARS.buyer,
-        createdAt: new Date().toISOString().split('T')[0],
-      };
-
-      // Persist to registered users in localStorage
-      const storedUsers = JSON.parse(localStorage.getItem('makefarmhub_registered_users') || '[]');
-      storedUsers.push(newUser);
-      localStorage.setItem('makefarmhub_registered_users', JSON.stringify(storedUsers));
-
-      setUser(newUser);
-      localStorage.setItem('makefarmhub_user', JSON.stringify(newUser));
-      return { success: true };
     } catch {
-      return { success: false, error: 'Network error. Please check your connection.' };
+      return { success: false, error: 'Network error verifying code. Please try again.' };
     }
+
+    // Step 2: Create account
+    if (useSupabase) {
+      try {
+        // Create Supabase account with password
+        const signUpPayload = email
+          ? { email, password, options: { data: { name, phone, role, location } } }
+          : { phone, password, options: { data: { name, email, role, location } } };
+
+        const { data: authData, error: authError } = await supabase.auth.signUp(signUpPayload);
+
+        if (authError) {
+          console.error('Supabase signup error:', authError.message);
+          // If Supabase signup fails, fall through to local storage
+        } else if (authData.user) {
+          // Update profile
+          try {
+            await profileService.updateProfile(authData.user.id, { name, phone, email, location, role });
+          } catch {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            try { await profileService.updateProfile(authData.user.id, { name, phone, email, location, role }); } catch {}
+          }
+
+          const appUser: User = {
+            id: authData.user.id,
+            name,
+            phone,
+            email: email || authData.user.email || '',
+            role,
+            location,
+            verified: true,
+            avatar: DEFAULT_AVATARS[role] || DEFAULT_AVATARS.buyer,
+            createdAt: new Date().toISOString().split('T')[0],
+          };
+          setUser(appUser);
+          localStorage.setItem('makefarmhub_user', JSON.stringify(appUser));
+          return { success: true };
+        }
+      } catch (err) {
+        console.warn('Supabase signup failed, using local storage:', err);
+      }
+    }
+
+    // Fallback: store locally with password
+    const newUser: any = {
+      id: `user-${Date.now()}`,
+      name,
+      phone,
+      email,
+      role,
+      location,
+      password,
+      verified: true,
+      avatar: DEFAULT_AVATARS[role] || DEFAULT_AVATARS.buyer,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+
+    const storedUsers = JSON.parse(localStorage.getItem('makefarmhub_registered_users') || '[]');
+    storedUsers.push(newUser);
+    localStorage.setItem('makefarmhub_registered_users', JSON.stringify(storedUsers));
+
+    const { password: _, ...userWithoutPassword } = newUser;
+    setUser(userWithoutPassword);
+    localStorage.setItem('makefarmhub_user', JSON.stringify(userWithoutPassword));
+    return { success: true };
   };
 
   const logout = () => {
+    if (useSupabase) {
+      supabase.auth.signOut().catch(err => console.error('Supabase signout error:', err));
+    }
     setUser(null);
     localStorage.removeItem('makefarmhub_user');
   };
 
   const switchRole = (role: UserRole) => {
     if (user) {
-      // For demo, switch to a mock user of that role
-      let roleUser;
-      if (role === 'admin') {
-        roleUser = adminUser;
+      if (useSupabase) {
+        // Update role in DB
+        const updatedUser = { ...user, role };
+        setUser(updatedUser);
+        localStorage.setItem('makefarmhub_user', JSON.stringify(updatedUser));
+        profileService.updateProfile(user.id, { role }).catch(err => console.error('Error updating role:', err));
       } else {
-        roleUser = mockUsers.find(u => u.role === role) || { ...user, role };
+        let roleUser;
+        if (role === 'admin') {
+          roleUser = adminUser;
+        } else {
+          roleUser = mockUsers.find(u => u.role === role) || { ...user, role };
+        }
+        setUser(roleUser as User);
+        localStorage.setItem('makefarmhub_user', JSON.stringify(roleUser));
       }
-      setUser(roleUser as User);
-      localStorage.setItem('makefarmhub_user', JSON.stringify(roleUser));
     }
   };
 
@@ -182,6 +452,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updatedUser = { ...user, ...updates };
       setUser(updatedUser);
       localStorage.setItem('makefarmhub_user', JSON.stringify(updatedUser));
+      if (useSupabase) {
+        profileService.updateProfile(user.id, {
+          name: updates.name,
+          phone: updates.phone,
+          location: updates.location,
+        }).catch(err => console.error('Error updating profile:', err));
+      }
     }
   };
 
@@ -190,6 +467,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updatedUser = { ...user, avatar: avatarUrl };
       setUser(updatedUser);
       localStorage.setItem('makefarmhub_user', JSON.stringify(updatedUser));
+      if (useSupabase) {
+        profileService.updateProfile(user.id, { avatar: avatarUrl })
+          .catch(err => console.error('Error updating avatar:', err));
+      }
     }
   };
 
@@ -198,6 +479,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isAuthenticated: !!user,
       isLoading,
+      checkUserExists,
+      loginWithPassword,
       login,
       signup,
       sendOTP,

@@ -44,36 +44,33 @@ export default function Profile() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         showToast('error', 'Please select an image file');
         return;
       }
-
-      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         showToast('error', 'Image must be less than 5MB');
         return;
       }
 
       setIsUploading(true);
-      
-      // Convert to base64 for demo (in production, upload to server)
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        updateAvatar(base64String);
-        setIsUploading(false);
-        showToast('success', 'Profile picture updated!');
-      };
-      reader.onerror = () => {
-        setIsUploading(false);
+      try {
+        const { uploadAvatar } = await import('../../services/imageUploadService');
+        const result = await uploadAvatar(file, user?.id || 'anonymous');
+        if (result.success && result.url) {
+          updateAvatar(result.url);
+          showToast('success', 'Profile picture updated!');
+        } else {
+          showToast('error', result.error || 'Failed to upload image');
+        }
+      } catch {
         showToast('error', 'Failed to upload image');
-      };
-      reader.readAsDataURL(file);
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 

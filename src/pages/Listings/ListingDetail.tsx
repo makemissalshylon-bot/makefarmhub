@@ -7,7 +7,7 @@ import { useToast } from '../../components/UI/Toast';
 import ReviewsSection from '../../components/Reviews/ReviewsSection';
 import WriteReviewModal from '../../components/Reviews/WriteReviewModal';
 import ChatModal from '../../components/Messages/ChatModal';
-import PaymentModal, { PaymentDetails } from '../../components/Payment/PaymentModal';
+import PaymentModal, { type PaymentDetails } from '../../components/Payment/PaymentModal';
 import ShareButton from '../../components/Social/ShareButton';
 import Breadcrumbs from '../../components/UI/Breadcrumbs';
 import {

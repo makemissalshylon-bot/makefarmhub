@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Download, X, Smartphone } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import './InstallPrompt.css';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -8,12 +9,16 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export default function InstallPrompt() {
+  const { user } = useAuth();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
+    // Only show prompt if user is logged in
+    if (!user) return;
+
     // Check if already installed
     const standalone = window.matchMedia('(display-mode: standalone)').matches;
     setIsStandalone(standalone);
@@ -34,19 +39,19 @@ export default function InstallPrompt() {
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      // Show after 30 seconds on the page
-      setTimeout(() => setShowPrompt(true), 30000);
+      // Show after 10 seconds on the page (only if logged in)
+      setTimeout(() => setShowPrompt(true), 10000);
     };
 
     window.addEventListener('beforeinstallprompt', handler);
 
-    // For iOS, show custom prompt after delay
+    // For iOS, show custom prompt after delay (only if logged in)
     if (iOS && !standalone) {
-      setTimeout(() => setShowPrompt(true), 30000);
+      setTimeout(() => setShowPrompt(true), 10000);
     }
 
     return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
+  }, [user]);
 
   const handleInstall = async () => {
     if (deferredPrompt) {
@@ -84,14 +89,16 @@ export default function InstallPrompt() {
 
         {isIOS ? (
           <div className="ios-instructions">
-            <p>
-              Tap <span className="share-icon">⬆️</span> then "Add to Home Screen"
-            </p>
+            <p className="ios-step"><strong>Step 1:</strong> Tap the <strong>Share</strong> button at the bottom of your screen</p>
+            <div className="share-icon-large">⬆️</div>
+            <p className="ios-step"><strong>Step 2:</strong> Scroll down and tap <strong>"Add to Home Screen"</strong></p>
+            <p className="ios-step"><strong>Step 3:</strong> Tap <strong>"Add"</strong> in the top right corner</p>
+            <p className="ios-note">📱 The app will appear on your home screen like any other app!</p>
           </div>
         ) : (
-          <button className="install-button" onClick={handleInstall}>
-            <Download size={18} />
-            Install App
+          <button className="install-button-large" onClick={handleInstall}>
+            <Download size={24} />
+            <span>Install App Now</span>
           </button>
         )}
       </div>

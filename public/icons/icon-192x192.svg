@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="24" fill="#0a6b2b"/>
+  <text x="96" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="white">MAKE</text>
+  <text x="96" y="120" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#fbbf24">FARM</text>
+  <text x="96" y="160" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="white">HUB</text>
+</svg>

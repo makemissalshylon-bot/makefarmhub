@@ -40,7 +40,7 @@ export default function Messages() {
   const [showChatMenu, setShowChatMenu] = useState(false);
   const { status: rtStatus, connect: rtConnect } = useRealtimeStatus();
   const { typingUsers, startTyping, stopTyping } = useRealtimeChat(selectedConversation || '');
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Connect to realtime service on mount
   useEffect(() => {

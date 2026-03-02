@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Search,
   ChevronDown,
@@ -10,23 +10,56 @@ import {
   Download,
   Eye,
 } from 'lucide-react';
+import { isSupabaseReady } from '../../lib/supabase';
+import { adminService } from '../../services/supabase/adminService';
 import { mockEscrowPayments, mockOrders } from '../../data/mockData';
 
 export default function AdminPayments() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
+  const [orders, setOrders] = useState<any[]>(mockOrders);
 
-  // Add pending approval status to some payments
-  const paymentsWithApproval = mockEscrowPayments.map((payment, index) => ({
-    ...payment,
-    requiresApproval: index % 3 === 0,
-    approvalStatus: index % 3 === 0 ? 'pending' : 'approved',
-  }));
+  // Build payments from orders
+  const buildPayments = (orderList: any[]) => orderList
+    .filter((o: any) => o.totalPrice || o.total_price)
+    .map((o: any, index: number) => ({
+      id: o.id,
+      orderId: o.id,
+      totalAmount: Number(o.totalPrice || o.total_price || 0),
+      platformFee: Number(o.totalPrice || o.total_price || 0) * 0.05,
+      status: o.status === 'completed' || o.status === 'delivered' ? 'released' : o.status === 'cancelled' ? 'refunded' : 'held',
+      paymentMethod: o.paymentMethod || o.payment_method || 'Wallet',
+      createdAt: o.createdAt || o.created_at,
+      requiresApproval: o.status === 'delivered',
+      approvalStatus: o.status === 'delivered' ? 'pending' : 'approved',
+      listingTitle: o.listingTitle || o.listing_title || 'Order',
+    }));
+
+  const [paymentsWithApproval, setPaymentsWithApproval] = useState<any[]>(() => {
+    const mockPayments = mockEscrowPayments.map((payment, index) => ({
+      ...payment,
+      requiresApproval: index % 3 === 0,
+      approvalStatus: index % 3 === 0 ? 'pending' : 'approved',
+      listingTitle: mockOrders.find(o => o.id === payment.orderId)?.listingTitle || 'Order',
+    }));
+    return mockPayments;
+  });
+
+  useEffect(() => {
+    if (isSupabaseReady()) {
+      adminService.getAllOrders().then(data => {
+        if (data.length > 0) {
+          setOrders(data);
+          setPaymentsWithApproval(buildPayments(data));
+        }
+      }).catch(() => {});
+    }
+  }, []);
 
   const filteredPayments = paymentsWithApproval.filter((payment) => {
-    const order = mockOrders.find(o => o.id === payment.orderId);
-    const matchesSearch = order?.listingTitle.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (payment as any).listingTitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      payment.orderId?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -187,7 +220,6 @@ export default function AdminPayments() {
           </thead>
           <tbody>
             {filteredPayments.map((payment) => {
-              const order = mockOrders.find(o => o.id === payment.orderId);
               return (
                 <tr key={payment.id} className={selectedPayments.includes(payment.id) ? 'selected' : ''}>
                   <td>
@@ -201,7 +233,7 @@ export default function AdminPayments() {
                     <div>
                       <strong>{payment.orderId.slice(-8)}</strong>
                       <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                        {order?.listingTitle || 'Unknown'}
+                        {(payment as any).listingTitle || 'Unknown'}
                       </div>
                     </div>
                   </td>

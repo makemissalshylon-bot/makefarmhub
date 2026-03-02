@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/UI/Toast';
 import {
   Search,
@@ -15,10 +16,12 @@ import {
   MapPin,
   Calendar,
 } from 'lucide-react';
+import { isSupabaseReady } from '../../lib/supabase';
+import { adminService } from '../../services/supabase/adminService';
 import { mockUsers } from '../../data/mockData';
 
 // Extended mock users for admin view
-const allUsers = [
+const fallbackUsers = [
   ...mockUsers,
   {
     id: 'farmer-2',
@@ -67,6 +70,7 @@ const allUsers = [
 ];
 
 export default function AdminUsers() {
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -74,8 +78,28 @@ export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
-  const [userToVerify, setUserToVerify] = useState<typeof allUsers[0] | null>(null);
-  const [users, setUsers] = useState(allUsers);
+  const [userToVerify, setUserToVerify] = useState<typeof fallbackUsers[0] | null>(null);
+  const [users, setUsers] = useState(fallbackUsers);
+
+  useEffect(() => {
+    if (isSupabaseReady()) {
+      adminService.getAllUsers().then((dbUsers) => {
+        if (dbUsers.length > 0) {
+          setUsers(dbUsers.map((u: any) => ({
+            id: u.id,
+            name: u.name || 'Unknown',
+            email: u.email || '',
+            phone: u.phone || '',
+            role: u.role || 'buyer',
+            avatar: u.avatar || '',
+            location: u.location || '',
+            verified: u.verified || false,
+            createdAt: u.created_at?.split('T')[0] || '',
+          })));
+        }
+      }).catch(() => {});
+    }
+  }, []);
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
@@ -114,7 +138,11 @@ export default function AdminUsers() {
     );
   };
 
-  const handleVerifyUser = (user: typeof allUsers[0]) => {
+  const handleViewProfile = (userId: string) => {
+    navigate('/profile', { state: { viewUserId: userId } });
+  };
+
+  const handleVerifyUser = (user: typeof fallbackUsers[0]) => {
     setUserToVerify(user);
     setShowVerifyModal(true);
   };
@@ -349,7 +377,11 @@ export default function AdminUsers() {
                 </td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn-icon" title="View Profile">
+                    <button 
+                      className="btn-icon" 
+                      title="View Profile"
+                      onClick={() => handleViewProfile(user.id)}
+                    >
                       <Eye size={18} />
                     </button>
                     {!user.verified && (

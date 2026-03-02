@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users,
@@ -14,21 +15,74 @@ import {
   MoreVertical,
   ChevronRight,
 } from 'lucide-react';
+import { useAppData } from '../../context/AppDataContext';
+import { isSupabaseReady } from '../../lib/supabase';
+import { adminService } from '../../services/supabase/adminService';
 import {
   mockAdminStats,
   mockTransactions,
   mockDisputes,
   topSellingProducts,
   revenueByMonth,
-  mockUsers,
-  mockOrders,
 } from '../../data/mockData';
 
 export default function AdminDashboard() {
-  const stats = mockAdminStats;
-  const recentTransactions = mockTransactions.slice(0, 5);
-  const pendingDisputes = mockDisputes.filter(d => d.status !== 'resolved').slice(0, 4);
-  const recentOrders = mockOrders.slice(0, 5);
+  const { orders, listings, escrowBalance } = useAppData();
+  const [stats, setStats] = useState(mockAdminStats);
+  const [recentTransactions, setRecentTransactions] = useState<any[]>(mockTransactions.slice(0, 5));
+  const [pendingDisputes, setPendingDisputes] = useState<any[]>(mockDisputes.filter(d => d.status !== 'resolved').slice(0, 4));
+
+  useEffect(() => {
+    if (isSupabaseReady()) {
+      adminService.getStats().then(liveStats => {
+        setStats(prev => ({ ...prev, ...liveStats }));
+      }).catch(() => {});
+
+      adminService.getAllTransactions().then(txns => {
+        if (txns.length > 0) {
+          setRecentTransactions(txns.slice(0, 5).map((t: any) => ({
+            id: t.id,
+            type: t.type,
+            amount: Number(t.amount),
+            fee: Number(t.fee || 0),
+            status: t.status,
+            description: t.description,
+            date: t.created_at?.split('T')[0] || '',
+            orderTitle: t.description || t.reference || 'Transaction',
+            fromUser: { name: 'User', role: 'buyer' },
+            toUser: { name: 'Seller', role: 'farmer' },
+          })));
+        }
+      }).catch(() => {});
+
+      adminService.getAllDisputes().then(disputes => {
+        if (disputes.length > 0) {
+          setPendingDisputes(disputes.filter((d: any) => d.status !== 'resolved').slice(0, 4).map((d: any) => ({
+            id: d.id,
+            orderId: d.order_id,
+            raisedBy: d.raised_by,
+            raisedByName: d.raised_by_name || 'User',
+            reason: d.reason,
+            description: d.description,
+            status: d.status,
+            createdAt: d.created_at,
+            messages: d.messages || [],
+          })));
+        }
+      }).catch(() => {});
+    } else {
+      setStats({
+        ...mockAdminStats,
+        totalOrders: orders.length || mockAdminStats.totalOrders,
+        completedOrders: orders.filter(o => o.status === 'delivered').length || mockAdminStats.completedOrders,
+        totalListings: listings.length || mockAdminStats.totalListings,
+        activeListings: listings.filter((l: any) => l.status === 'active' || !l.status).length || mockAdminStats.activeListings,
+        escrowBalance: escrowBalance || mockAdminStats.escrowBalance,
+      });
+    }
+  }, [orders, listings, escrowBalance]);
+
+  const recentOrders = orders.length > 0 ? orders.slice(0, 5) : [];
 
   return (
     <div className="admin-dashboard">

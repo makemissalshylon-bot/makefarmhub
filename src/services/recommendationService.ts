@@ -3,7 +3,7 @@
  * Provides personalized product recommendations based on user behavior
  */
 
-import { Listing } from '../types';
+import type { Listing } from '../types';
 
 export interface UserBehavior {
   viewedProducts: string[];
@@ -62,7 +62,7 @@ class RecommendationService {
       }
 
       // Boost for high ratings (10% weight)
-      if (listing.seller.rating >= 4.5) {
+      if ((listing.sellerRating || listing.rating || 0) >= 4.5) {
         score += 10;
       }
 
@@ -115,7 +115,7 @@ class RecommendationService {
     if (listing1.location === listing2.location) score += 20;
 
     // Similar rating
-    const ratingDiff = Math.abs(listing1.seller.rating - listing2.seller.rating);
+    const ratingDiff = Math.abs((listing1.sellerRating || 0) - (listing2.sellerRating || 0));
     if (ratingDiff < 0.5) score += 10;
 
     return score;
@@ -128,8 +128,8 @@ class RecommendationService {
     return allListings
       .sort((a, b) => {
         // Simple trending algorithm: high rating + recent + popular
-        const aScore = a.seller.rating * 20 + (a.views || 0) * 0.1;
-        const bScore = b.seller.rating * 20 + (b.views || 0) * 0.1;
+        const aScore = (a.sellerRating || 0) * 20 + (a.views || 0) * 0.1;
+        const bScore = (b.sellerRating || 0) * 20 + (b.views || 0) * 0.1;
         return bScore - aScore;
       })
       .slice(0, limit);
@@ -145,7 +145,7 @@ class RecommendationService {
   ): Listing[] {
     return allListings
       .filter(listing => 
-        listing.seller.id === currentListing.seller.id &&
+        listing.sellerId === currentListing.sellerId &&
         listing.id !== currentListing.id
       )
       .slice(0, limit);
@@ -165,7 +165,7 @@ class RecommendationService {
       .filter(listing => 
         listing.id !== currentListing.id &&
         listing.category === currentListing.category &&
-        listing.seller.id !== currentListing.seller.id
+        listing.sellerId !== currentListing.sellerId
       )
       .slice(0, limit);
   }

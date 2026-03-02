@@ -94,7 +94,7 @@ export default function Notifications() {
     yesterday.setDate(yesterday.getDate() - 1);
     
     filteredNotifications.forEach(notif => {
-      const notifDate = new Date(notif.createdAt);
+      const notifDate = new Date(notif.createdAt || notif.timestamp || Date.now());
       let groupKey: string;
       
       if (notifDate.toDateString() === today.toDateString()) {
@@ -301,7 +301,7 @@ export default function Notifications() {
                       <h3>{notification.title}</h3>
                       <span className="notification-time">
                         <Clock size={14} />
-                        {formatTime(notification.createdAt)}
+                        {formatTime(notification.createdAt || notification.timestamp || '')}
                       </span>
                     </div>
                     <p>{notification.message}</p>

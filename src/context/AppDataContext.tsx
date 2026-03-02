@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { 
   mockOrders, 
   mockConversations, 
@@ -10,6 +10,15 @@ import {
 } from '../data/mockData';
 import type { Order, Conversation, Message, Notification, Listing, TransportRequest, Vehicle } from '../types';
 import type { Address } from '../components/Address/AddressBook';
+import { supabase, isSupabaseReady } from '../lib/supabase';
+import { listingService } from '../services/supabase/listingService';
+import { orderService } from '../services/supabase/orderService';
+import { messageService } from '../services/supabase/messageService';
+import { walletService } from '../services/supabase/walletService';
+import { notificationService } from '../services/supabase/notificationService';
+import { transportService } from '../services/supabase/transportService';
+import { reviewService } from '../services/supabase/reviewService';
+import { useAuth } from './AuthContext';
 
 interface WalletTransaction {
   id: string;
@@ -104,7 +113,10 @@ interface AppDataContextType {
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
-  // Orders state
+  const { user } = useAuth();
+
+  // Always start with mock data so the app is never blank
+  // Supabase data will replace it once loaded
   const [orders, setOrders] = useState<Order[]>(mockOrders);
   
   // Messages state
@@ -115,22 +127,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
   
   // Wallet state
-  const [walletBalance, setWalletBalance] = useState(2450.00);
-  const [escrowBalance] = useState(850.00);
-  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([
-    { id: '1', type: 'deposit', amount: 1000, description: 'EcoCash Deposit', date: '2024-01-15', status: 'completed' },
-    { id: '2', type: 'payment', amount: -250, description: 'Order #ORD-001 Payment', date: '2024-01-14', status: 'completed' },
-    { id: '3', type: 'escrow', amount: -850, description: 'Escrow for Order #ORD-002', date: '2024-01-13', status: 'pending' },
-    { id: '4', type: 'deposit', amount: 2000, description: 'Bank Transfer', date: '2024-01-12', status: 'completed' },
-    { id: '5', type: 'refund', amount: 550, description: 'Refund for cancelled order', date: '2024-01-10', status: 'completed' },
-  ]);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [escrowBalance, setEscrowBalance] = useState(0);
+  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([]);
   
   // Listings state
   const [listings, setListings] = useState<Listing[]>(mockListings);
   
   // Transport state
   const [transportRequests, setTransportRequests] = useState<TransportRequest[]>(mockTransportRequests);
-  const [vehicles] = useState<Vehicle[]>(mockVehicles);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(mockVehicles);
   
   // Reviews state
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -153,7 +159,244 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return saved ? JSON.parse(saved) : {};
   });
 
-  // Order functions
+  // ============================================
+  // SUPABASE DATA LOADING
+  // ============================================
+  useEffect(() => {
+    if (!isSupabaseReady() || !user) return;
+
+    const loadData = async () => {
+      // Load each data source independently so one failure doesn't crash the app
+      
+      // Load listings
+      try {
+        const dbListings = await listingService.getAll();
+        const mappedListings: Listing[] = dbListings.map((l: any) => ({
+          id: l.id,
+          sellerId: l.seller_id,
+          sellerName: l.profiles?.name || 'Unknown Seller',
+          sellerAvatar: l.profiles?.avatar || '',
+          sellerRating: Number(l.profiles?.rating || 0),
+          sellerVerified: l.profiles?.verified || false,
+          sellerLocation: l.profiles?.location || l.location || '',
+          title: l.title,
+          description: l.description,
+          category: l.category,
+          subcategory: l.subcategory,
+          price: Number(l.price),
+          unit: l.unit,
+          quantity: l.quantity,
+          location: l.location,
+          images: l.images || [],
+          status: l.status,
+          featured: l.featured,
+          views: l.views,
+          organic: l.organic,
+          tags: l.tags || [],
+          readyToSell: l.ready_to_sell,
+          deliveryTerms: l.delivery_terms,
+          deliveryOptions: l.delivery_options || [],
+          paymentOptions: l.payment_options || [],
+          createdAt: l.created_at,
+        }));
+        setListings(mappedListings);
+      } catch (err) {
+        console.warn('Failed to load listings from Supabase:', err);
+      }
+
+      // Load orders
+      try {
+        const role = user.role === 'farmer' ? 'seller' : user.role === 'transporter' ? 'transporter' : 'buyer';
+        const dbOrders = await orderService.getAll(user.id, role as any);
+        const mappedOrders: Order[] = dbOrders.map((o: any) => ({
+          id: o.id,
+          listingId: o.listing_id,
+          listingTitle: o.listing_title,
+          listingImage: o.listing_image,
+          buyerId: o.buyer_id,
+          buyerName: o.buyer_name,
+          sellerId: o.seller_id,
+          sellerName: o.seller_name,
+          transporterId: o.transporter_id,
+          transporterName: o.transporter_name,
+          quantity: o.quantity,
+          unitPrice: Number(o.unit_price),
+          totalPrice: Number(o.total_price),
+          escrowAmount: Number(o.escrow_amount),
+          status: o.status,
+          deliveryAddress: o.delivery_address,
+          paymentMethod: o.payment_method,
+          createdAt: o.created_at,
+        }));
+        setOrders(mappedOrders);
+      } catch (err) {
+        console.warn('Failed to load orders from Supabase:', err);
+      }
+
+      // Load conversations
+      try {
+        const dbConvos = await messageService.getConversations(user.id);
+        const mappedConvos: Conversation[] = dbConvos.map((c: any) => ({
+          id: c.id,
+          participants: (c.participant_ids || []).map((pid: string, idx: number) => ({
+            id: pid,
+            name: c.participant_names?.[idx] || 'User',
+            avatar: c.participant_avatars?.[idx] || '',
+            role: 'buyer' as const,
+          })),
+          listingId: c.listing_id,
+          listingTitle: c.listing_title,
+          lastMessage: c.last_message,
+          lastMessageTime: new Date(c.last_message_time).toLocaleString(),
+          unreadCount: 0,
+        }));
+        setConversations(mappedConvos);
+      } catch (err) {
+        console.warn('Failed to load conversations from Supabase:', err);
+      }
+
+      // Load notifications
+      try {
+        const dbNotifs = await notificationService.getAll(user.id);
+        const mappedNotifs: Notification[] = dbNotifs.map((n: any) => ({
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          read: n.read,
+          timestamp: new Date(n.created_at).toLocaleString(),
+          actionUrl: n.action_url,
+        }));
+        setNotifications(mappedNotifs);
+      } catch (err) {
+        console.warn('Failed to load notifications from Supabase:', err);
+      }
+
+      // Load wallet
+      try {
+        const wallet: any = await walletService.getWallet(user.id);
+        setWalletBalance(Number(wallet?.balance) || 0);
+        setEscrowBalance(Number(wallet?.escrow_held) || 0);
+        const txns = await walletService.getTransactions(user.id);
+        setWalletTransactions(txns.map((t: any) => ({
+          id: t.id,
+          type: t.type === 'escrow_hold' || t.type === 'escrow_release' ? 'escrow' : t.type,
+          amount: Number(t.amount),
+          description: t.description,
+          date: t.created_at?.split('T')[0] || '',
+          status: t.status,
+        })));
+      } catch { /* wallet may not exist yet */ }
+
+      // Load vehicles & transport
+      try {
+        const dbVehicles = await transportService.getVehicles();
+        setVehicles(dbVehicles.map((v: any) => ({
+          id: v.id,
+          ownerId: v.owner_id,
+          ownerName: v.owner_name,
+          type: v.type,
+          name: v.name,
+          capacity: v.capacity,
+          pricePerKm: Number(v.price_per_km),
+          available: v.available,
+          location: v.location,
+          image: v.image,
+          rating: Number(v.rating),
+          trips: v.trips,
+        })));
+      } catch (err) {
+        console.warn('Failed to load vehicles from Supabase:', err);
+      }
+
+      try {
+        const dbTransport = await transportService.getTransportRequests();
+        setTransportRequests(dbTransport.map((t: any) => ({
+          id: t.id,
+          orderId: t.order_id,
+          pickupLocation: t.pickup_location,
+          deliveryLocation: t.delivery_location,
+          distance: Number(t.distance),
+          estimatedPrice: Number(t.estimated_price),
+          status: t.status,
+          vehicleId: t.vehicle_id,
+          scheduledDate: t.scheduled_date,
+          currentLocation: t.current_location,
+        })));
+      } catch (err) {
+        console.warn('Failed to load transport requests from Supabase:', err);
+      }
+    };
+
+    loadData();
+  }, [isSupabaseReady(), user]);
+
+  // ============================================
+  // REALTIME SUBSCRIPTIONS
+  // ============================================
+  useEffect(() => {
+    if (!isSupabaseReady() || !user) return;
+
+    // Subscribe to new messages
+    const msgChannel = supabase
+      .channel('realtime-messages')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const m = payload.new as any;
+        setMessages(prev => ({
+          ...prev,
+          [m.conversation_id]: [...(prev[m.conversation_id] || []), {
+            id: m.id,
+            senderId: m.sender_id,
+            senderName: m.sender_name,
+            content: m.content,
+            timestamp: m.created_at,
+            read: m.read,
+          }],
+        }));
+      })
+      .subscribe();
+
+    // Subscribe to new notifications
+    const notifChannel = supabase
+      .channel('realtime-notifications')
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${user.id}`,
+      }, (payload) => {
+        const n = payload.new as any;
+        setNotifications(prev => [{
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          read: false,
+          timestamp: 'Just now',
+          actionUrl: n.action_url,
+        }, ...prev]);
+      })
+      .subscribe();
+
+    // Subscribe to order updates
+    const orderChannel = supabase
+      .channel('realtime-orders')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
+        const o = payload.new as any;
+        setOrders(prev => prev.map(order =>
+          order.id === o.id ? { ...order, status: o.status } : order
+        ));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(msgChannel);
+      supabase.removeChannel(notifChannel);
+      supabase.removeChannel(orderChannel);
+    };
+  }, [isSupabaseReady(), user]);
+
+  // ============================================
+  // ORDER FUNCTIONS
+  // ============================================
   const createOrder = useCallback((order: Omit<Order, 'id' | 'createdAt'>) => {
     const newOrderId = `order-${Date.now()}`;
     const newOrder: Order = {
@@ -162,6 +405,27 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
     } as Order;
     setOrders(prev => [newOrder, ...prev]);
+    
+    if (isSupabaseReady()) {
+      orderService.create({
+        listing_id: order.listingId,
+        listing_title: order.listingTitle,
+        listing_image: order.listingImage || '',
+        buyer_id: order.buyerId,
+        buyer_name: order.buyerName,
+        seller_id: order.sellerId,
+        seller_name: order.sellerName,
+        quantity: order.quantity,
+        unit_price: order.unitPrice,
+        total_price: order.totalPrice,
+        escrow_amount: order.escrowAmount || 0,
+        delivery_address: order.deliveryAddress || '',
+        payment_method: order.paymentMethod,
+      }).then((dbOrder: any) => {
+        // Replace temp ID with real DB ID
+        setOrders(prev => prev.map(o => o.id === newOrderId ? { ...o, id: dbOrder.id } : o));
+      }).catch(err => console.error('Error creating order:', err));
+    }
     
     // Update seller stats when order is completed
     if (newOrder.status === 'completed' && newOrder.sellerId) {
@@ -178,20 +442,28 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
     
     return newOrderId;
-  }, []);
+  }, [isSupabaseReady()]);
 
   const updateOrderStatus = useCallback((orderId: string, status: Order['status']) => {
     setOrders(prev => prev.map(order => 
       order.id === orderId ? { ...order, status } : order
     ));
-  }, []);
+    if (isSupabaseReady()) {
+      orderService.updateStatus(orderId, status).catch(err => console.error('Error updating order:', err));
+    }
+  }, [isSupabaseReady()]);
 
-  // Message functions
+  // ============================================
+  // MESSAGE FUNCTIONS
+  // ============================================
   const sendMessage = useCallback((conversationId: string, content: string) => {
+    const senderId = user?.id || 'current-user';
+    const senderName = user?.name || 'You';
+
     const newMessage: Message = {
       id: `msg-${Date.now()}`,
-      senderId: 'current-user',
-      senderName: 'You',
+      senderId,
+      senderName,
       content,
       timestamp: new Date().toISOString(),
       read: true,
@@ -202,15 +474,25 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       [conversationId]: [...(prev[conversationId] || []), newMessage],
     }));
     
-    // Update conversation's last message
     setConversations(prev => prev.map(conv => 
       conv.id === conversationId 
         ? { ...conv, lastMessage: content, lastMessageTime: 'Just now', unreadCount: 0 }
         : conv
     ));
-  }, []);
 
-  // Notification functions
+    if (isSupabaseReady()) {
+      messageService.sendMessage({
+        conversation_id: conversationId,
+        sender_id: senderId,
+        sender_name: senderName,
+        content,
+      }).catch(err => console.error('Error sending message:', err));
+    }
+  }, [isSupabaseReady(), user]);
+
+  // ============================================
+  // NOTIFICATION FUNCTIONS
+  // ============================================
   const createNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
     const newNotification: Notification = {
       ...notification,
@@ -219,27 +501,51 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       read: false,
     };
     setNotifications(prev => [newNotification, ...prev]);
-  }, []);
+
+    if (isSupabaseReady() && user) {
+      notificationService.create({
+        user_id: user.id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type as any,
+        action_url: notification.actionUrl,
+      }).catch(err => console.error('Error creating notification:', err));
+    }
+  }, [isSupabaseReady(), user]);
 
   const markNotificationRead = useCallback((id: string) => {
     setNotifications(prev => prev.map(n => 
       n.id === id ? { ...n, read: true } : n
     ));
-  }, []);
+    if (isSupabaseReady()) {
+      notificationService.markAsRead(id).catch(err => console.error('Error marking notification read:', err));
+    }
+  }, [isSupabaseReady()]);
 
   const markAllNotificationsRead = useCallback(() => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  }, []);
+    if (isSupabaseReady() && user) {
+      notificationService.markAllAsRead(user.id).catch(err => console.error('Error marking all read:', err));
+    }
+  }, [isSupabaseReady(), user]);
 
   const deleteNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
-  }, []);
+    if (isSupabaseReady()) {
+      notificationService.delete(id).catch(err => console.error('Error deleting notification:', err));
+    }
+  }, [isSupabaseReady()]);
 
   const clearAllNotifications = useCallback(() => {
     setNotifications([]);
-  }, []);
+    if (isSupabaseReady() && user) {
+      notificationService.deleteAll(user.id).catch(err => console.error('Error clearing notifications:', err));
+    }
+  }, [isSupabaseReady(), user]);
 
-  // Wallet functions
+  // ============================================
+  // WALLET FUNCTIONS
+  // ============================================
   const addFunds = useCallback((amount: number, method: string) => {
     setWalletBalance(prev => prev + amount);
     setWalletTransactions(prev => [{
@@ -250,7 +556,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       date: new Date().toISOString().split('T')[0],
       status: 'completed',
     }, ...prev]);
-  }, []);
+
+    if (isSupabaseReady() && user) {
+      walletService.deposit(user.id, amount, method).catch(err => console.error('Error depositing:', err));
+    }
+  }, [isSupabaseReady(), user]);
 
   const withdrawFunds = useCallback((amount: number, method: string) => {
     if (amount <= walletBalance) {
@@ -263,57 +573,104 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         date: new Date().toISOString().split('T')[0],
         status: 'completed',
       }, ...prev]);
+
+      if (isSupabaseReady() && user) {
+        walletService.withdraw(user.id, amount, method).catch(err => console.error('Error withdrawing:', err));
+      }
     }
-  }, [walletBalance]);
+  }, [walletBalance, isSupabaseReady(), user]);
 
   const releaseEscrow = useCallback((orderId: string) => {
-    // Update order status to completed
     setOrders(prev => prev.map(order => 
       order.id === orderId ? { ...order, status: 'completed' } : order
     ));
     
-    // Create notification
+    if (isSupabaseReady()) {
+      const order = orders.find(o => o.id === orderId);
+      if (order) {
+        walletService.releaseEscrow(order.buyerId, order.sellerId, order.escrowAmount || order.totalPrice, orderId)
+          .catch(err => console.error('Error releasing escrow:', err));
+        orderService.updateStatus(orderId, 'completed')
+          .catch(err => console.error('Error updating order:', err));
+      }
+    }
+
     createNotification({
       type: 'success',
       title: 'Payment Released',
       message: `Escrow payment for order #${orderId} has been released to the seller`,
       actionUrl: `/orders/${orderId}`,
     });
-  }, [createNotification]);
+  }, [createNotification, isSupabaseReady(), orders]);
 
-  const raiseDispute = useCallback((orderId: string, reason: string) => {
-    // Update order status to disputed
+  const raiseDispute = useCallback((orderId: string, _reason: string) => {
     setOrders(prev => prev.map(order => 
       order.id === orderId ? { ...order, status: 'disputed' } : order
     ));
     
-    // Create notification
+    if (isSupabaseReady()) {
+      orderService.updateStatus(orderId, 'disputed')
+        .catch(err => console.error('Error updating order:', err));
+    }
+
     createNotification({
       type: 'warning',
       title: 'Dispute Raised',
       message: `A dispute has been raised for order #${orderId}. Our team will review it.`,
       actionUrl: `/orders/${orderId}`,
     });
-  }, [createNotification]);
+  }, [createNotification, isSupabaseReady()]);
 
-  // Listing functions
+  // ============================================
+  // LISTING FUNCTIONS
+  // ============================================
   const addListing = useCallback((listing: Omit<Listing, 'id'>) => {
+    const tempId = `listing-${Date.now()}`;
     const newListing: Listing = {
       ...listing,
-      id: `listing-${Date.now()}`,
+      id: tempId,
     } as Listing;
     setListings(prev => [newListing, ...prev]);
-  }, []);
+
+    if (isSupabaseReady() && user) {
+      listingService.create({
+        seller_id: user.id,
+        title: listing.title,
+        description: listing.description,
+        category: listing.category as any,
+        subcategory: listing.subcategory,
+        price: listing.price,
+        unit: listing.unit,
+        quantity: listing.quantity,
+        location: listing.location,
+        images: listing.images,
+        ready_to_sell: listing.readyToSell,
+        delivery_terms: listing.deliveryTerms,
+        delivery_options: (listing as any).deliveryOptions,
+        payment_options: (listing as any).paymentOptions,
+        organic: listing.organic,
+        tags: listing.tags,
+      }).then((dbListing: any) => {
+        setListings(prev => prev.map(l => l.id === tempId ? { ...l, id: dbListing.id } : l));
+      }).catch(err => console.error('Error creating listing:', err));
+    }
+  }, [isSupabaseReady(), user]);
 
   const deleteListing = useCallback((id: string) => {
     setListings(prev => prev.filter(l => l.id !== id));
-  }, []);
+    if (isSupabaseReady()) {
+      listingService.delete(id).catch(err => console.error('Error deleting listing:', err));
+    }
+  }, [isSupabaseReady()]);
 
   const updateListingStatus = useCallback((id: string, status: string) => {
     setListings(prev => prev.map(listing => 
       listing.id === id ? { ...listing, status: status as Listing['status'] } : listing
     ));
-  }, []);
+    if (isSupabaseReady()) {
+      listingService.update(id, { status }).catch(err => console.error('Error updating listing:', err));
+    }
+  }, [isSupabaseReady()]);
 
   const moderateListing = useCallback((id: string, action: 'approve' | 'reject' | 'flag', reason?: string) => {
     setListings(prev => prev.map(listing => {
@@ -334,24 +691,50 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
       return listing;
     }));
-  }, []);
+    if (isSupabaseReady()) {
+      const statusMap = { approve: 'active', reject: 'draft', flag: 'active' };
+      listingService.update(id, { status: statusMap[action] }).catch(err => console.error('Error moderating listing:', err));
+    }
+  }, [isSupabaseReady()]);
 
-  // Transport functions
+  // ============================================
+  // TRANSPORT FUNCTIONS
+  // ============================================
   const bookTransport = useCallback((request: Omit<TransportRequest, 'id'>) => {
+    const tempId = `req-${Date.now()}`;
     const newRequest: TransportRequest = {
       ...request,
-      id: `req-${Date.now()}`,
+      id: tempId,
     } as TransportRequest;
     setTransportRequests(prev => [newRequest, ...prev]);
-  }, []);
+
+    if (isSupabaseReady()) {
+      transportService.createTransportRequest({
+        order_id: request.orderId,
+        pickup_location: request.pickupLocation,
+        delivery_location: request.deliveryLocation,
+        distance: request.distance,
+        estimated_price: request.estimatedPrice,
+        vehicle_id: request.vehicleId,
+        scheduled_date: request.scheduledDate,
+      }).then((dbReq: any) => {
+        setTransportRequests(prev => prev.map(r => r.id === tempId ? { ...r, id: dbReq.id } : r));
+      }).catch(err => console.error('Error booking transport:', err));
+    }
+  }, [isSupabaseReady()]);
 
   const updateTransportStatus = useCallback((id: string, status: TransportRequest['status']) => {
     setTransportRequests(prev => prev.map(req => 
       req.id === id ? { ...req, status } : req
     ));
-  }, []);
+    if (isSupabaseReady()) {
+      transportService.updateTransportRequest(id, { status }).catch(err => console.error('Error updating transport:', err));
+    }
+  }, [isSupabaseReady()]);
 
-  // Review functions
+  // ============================================
+  // REVIEW FUNCTIONS
+  // ============================================
   const addReview = useCallback((review: Omit<Review, 'id' | 'date'>) => {
     const newReview: Review = {
       ...review,
@@ -359,9 +742,27 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       date: new Date().toISOString().split('T')[0],
     };
     setReviews(prev => [newReview, ...prev]);
-  }, []);
+
+    if (isSupabaseReady() && user) {
+      reviewService.create({
+        order_id: (review as any).orderId || '',
+        reviewer_id: user.id,
+        reviewer_name: user.name,
+        reviewer_avatar: user.avatar,
+        reviewer_role: user.role,
+        target_id: review.targetId,
+        target_name: review.authorName,
+        target_type: review.targetType as any,
+        rating: review.rating,
+        title: review.title,
+        comment: review.comment,
+      }).catch(err => console.error('Error creating review:', err));
+    }
+  }, [isSupabaseReady(), user]);
   
-  // Favorites functions
+  // ============================================
+  // FAVORITES FUNCTIONS
+  // ============================================
   const toggleFavorite = useCallback((listingId: string) => {
     setFavorites(prev => {
       const newFavorites = prev.includes(listingId)
@@ -376,7 +777,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return favorites.includes(listingId);
   }, [favorites]);
 
-  // Address functions
+  // ============================================
+  // ADDRESS FUNCTIONS
+  // ============================================
   const addAddress = useCallback((address: Omit<Address, 'id'>) => {
     const newAddress: Address = {
       ...address,
@@ -413,7 +816,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     });
   }, []);
   
-  // Seller commission functions
+  // ============================================
+  // SELLER COMMISSION FUNCTIONS
+  // ============================================
   const getSellerStats = useCallback((sellerId: string): SellerStats => {
     return sellerStats[sellerId] || { totalSales: 0, commissionPaid: false };
   }, [sellerStats]);
@@ -432,7 +837,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       return updated;
     });
     
-    // Deduct from wallet
     setWalletBalance(prev => prev - amount);
     setWalletTransactions(prev => [{
       id: `txn-${Date.now()}`,
@@ -452,9 +856,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   
   const canSellerList = useCallback((sellerId: string): boolean => {
     const stats = sellerStats[sellerId];
-    if (!stats) return true; // New sellers can list
-    if (stats.totalSales < 100) return true; // Under $100, can list freely
-    return stats.commissionPaid; // Over $100, must have paid commission
+    if (!stats) return true;
+    if (stats.totalSales < 100) return true;
+    return stats.commissionPaid;
   }, [sellerStats]);
 
   const contextValue: AppDataContextType = {

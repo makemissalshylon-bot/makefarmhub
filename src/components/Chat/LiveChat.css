@@ -139,15 +139,24 @@
   position: absolute;
   top: 1rem;
   right: 1rem;
-  background: none;
-  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.4);
   color: white;
   cursor: pointer;
-  opacity: 0.8;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 10;
 }
 
 .close-chat:hover {
-  opacity: 1;
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(1.05);
 }
 
 .chat-body {

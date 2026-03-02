@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -13,14 +13,38 @@ import {
   XCircle,
   Clock,
 } from 'lucide-react';
+import { isSupabaseReady } from '../../lib/supabase';
+import { adminService } from '../../services/supabase/adminService';
 import { mockTransactions } from '../../data/mockData';
 
 export default function AdminTransactions() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [transactions, setTransactions] = useState<any[]>(mockTransactions);
 
-  const filteredTransactions = mockTransactions.filter((txn) => {
+  useEffect(() => {
+    if (isSupabaseReady()) {
+      adminService.getAllTransactions().then(data => {
+        if (data.length > 0) {
+          setTransactions(data.map((t: any) => ({
+            id: t.id,
+            type: t.type === 'escrow_hold' ? 'escrow_in' : t.type === 'escrow_release' ? 'escrow_release' : t.type === 'payment' ? 'commission' : t.type,
+            amount: Number(t.amount),
+            commission: Number(t.fee || 0),
+            status: t.status,
+            paymentMethod: 'Wallet',
+            orderTitle: t.description || t.reference || 'Transaction',
+            fromUser: { name: 'User', role: 'buyer' },
+            toUser: { name: 'Seller', role: 'farmer' },
+            createdAt: t.created_at,
+          })));
+        }
+      }).catch(() => {});
+    }
+  }, []);
+
+  const filteredTransactions = transactions.filter((txn) => {
     const matchesSearch =
       txn.orderTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
       txn.fromUser.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

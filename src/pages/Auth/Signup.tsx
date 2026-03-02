@@ -35,12 +35,12 @@ export default function Signup() {
     phone: '',
     email: '',
     location: '',
+    password: '',
   });
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [otpToken, setOtpToken] = useState('');
-  const [devOtp, setDevOtp] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
   const { signup, sendOTP } = useAuth();
   const navigate = useNavigate();
@@ -65,8 +65,12 @@ export default function Signup() {
 
   const handleDetailsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.phone) {
+    if (!formData.name || !formData.phone || !formData.password) {
       setError('Please fill in all required fields');
+      return;
+    }
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
       return;
     }
     if (!formData.email) {
@@ -81,7 +85,6 @@ export default function Signup() {
 
     if (result.success && result.token) {
       setOtpToken(result.token);
-      if (result.dev_otp) setDevOtp(result.dev_otp);
       setStep('otp');
       startResendCooldown();
     } else {
@@ -99,7 +102,6 @@ export default function Signup() {
 
     if (result.success && result.token) {
       setOtpToken(result.token);
-      if (result.dev_otp) setDevOtp(result.dev_otp);
       startResendCooldown();
     } else {
       setError(result.error || 'Failed to resend code');
@@ -123,7 +125,8 @@ export default function Signup() {
       selectedRole!,
       formData.location,
       otp,
-      otpToken
+      otpToken,
+      formData.password
     );
     if (result.success) {
       navigate('/dashboard');
@@ -222,14 +225,30 @@ export default function Signup() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="email">Email (Optional)</label>
+              <label htmlFor="email">Email *</label>
               <input
                 type="email"
                 id="email"
                 placeholder="your@email.com"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
               />
+              <span className="form-hint">Required for account verification</span>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="password">Password *</label>
+              <input
+                type="password"
+                id="password"
+                placeholder="Create a password (min. 6 characters)"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                required
+                minLength={6}
+              />
+              <span className="form-hint">You'll use this to login next time</span>
             </div>
 
             <div className="form-group">
@@ -277,14 +296,6 @@ export default function Signup() {
               <p>We've sent a verification code to</p>
               <strong>{formData.email}</strong>
             </div>
-
-            {devOtp && (
-              <div className="demo-otp-box">
-                <div className="demo-otp-label">🔑 Your Verification Code</div>
-                <div className="demo-otp-code">{devOtp}</div>
-                <div className="demo-otp-hint">Check your email for the code</div>
-              </div>
-            )}
 
             <div className="form-group">
               <label htmlFor="otp">Enter Verification Code</label>

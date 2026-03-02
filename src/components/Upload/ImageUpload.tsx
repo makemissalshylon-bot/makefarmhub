@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
-import { Upload, X, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, AlertCircle, Loader } from 'lucide-react';
+import { uploadImage } from '../../services/imageUploadService';
 import '../../styles/image-upload.css';
 
 interface ImageUploadProps {
@@ -7,6 +8,8 @@ interface ImageUploadProps {
   maxSizeMB?: number;
   onImagesChange: (images: UploadedImage[]) => void;
   initialImages?: UploadedImage[];
+  bucket?: string;
+  folder?: string;
 }
 
 export interface UploadedImage {
@@ -22,11 +25,15 @@ export default function ImageUpload({
   maxImages = 5,
   maxSizeMB = 5,
   onImagesChange,
-  initialImages = []
+  initialImages = [],
+  bucket = 'listing-images',
+  folder,
 }: ImageUploadProps) {
   const [images, setImages] = useState<UploadedImage[]>(initialImages);
   const [error, setError] = useState<string>('');
   const [isDragging, setIsDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const compressImage = async (file: File): Promise<string> => {
@@ -110,9 +117,12 @@ export default function ImageUpload({
         return;
       }
 
+      setUploading(true);
+      setUploadProgress({ done: 0, total: fileArray.length });
       const newImages: UploadedImage[] = [];
 
-      for (const file of fileArray) {
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i];
         const validationError = validateFile(file);
         if (validationError) {
           setError(validationError);
@@ -120,21 +130,30 @@ export default function ImageUpload({
         }
 
         try {
+          // Create local preview immediately
           const compressedUrl = await compressImage(file);
+
+          // Upload to cloud storage
+          const result = await uploadImage(file, bucket, folder);
+          const cloudUrl = result.success && result.url ? result.url : compressedUrl;
+
           const newImage: UploadedImage = {
             id: `${Date.now()}-${Math.random()}`,
             file,
-            url: URL.createObjectURL(file),
+            url: cloudUrl,
             preview: compressedUrl,
             size: file.size,
             name: file.name
           };
           newImages.push(newImage);
+          setUploadProgress({ done: i + 1, total: fileArray.length });
         } catch (err) {
           console.error('Error processing image:', err);
           setError('Failed to process image');
         }
       }
+
+      setUploading(false);
 
       if (newImages.length > 0) {
         const updatedImages = [...images, ...newImages];
@@ -142,7 +161,7 @@ export default function ImageUpload({
         onImagesChange(updatedImages);
       }
     },
-    [images, maxImages, maxSizeMB, onImagesChange]
+    [images, maxImages, maxSizeMB, onImagesChange, bucket, folder]
   );
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -186,7 +205,7 @@ export default function ImageUpload({
       </div>
 
       {/* Upload Area */}
-      {images.length < maxImages && (
+      {images.length < maxImages && !uploading && (
         <div
           className={`image-upload-dropzone ${isDragging ? 'dragging' : ''}`}
           onDragOver={handleDragOver}
@@ -200,6 +219,20 @@ export default function ImageUpload({
             Maximum {maxImages} images • Max {maxSizeMB}MB each
           </p>
           <p className="supported-formats">Supports: JPG, PNG, WEBP</p>
+        </div>
+      )}
+
+      {/* Upload Progress */}
+      {uploading && (
+        <div className="image-upload-progress">
+          <Loader size={24} className="spinning" />
+          <p>Uploading {uploadProgress.done}/{uploadProgress.total} images...</p>
+          <div className="progress-bar">
+            <div
+              className="progress-fill"
+              style={{ width: `${uploadProgress.total ? (uploadProgress.done / uploadProgress.total) * 100 : 0}%` }}
+            />
+          </div>
         </div>
       )}
 

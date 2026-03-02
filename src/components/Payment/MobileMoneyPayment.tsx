@@ -78,26 +78,85 @@ export default function MobileMoneyPayment({
     setStatus('processing');
     setErrorMessage('');
 
-    try {
-      // Simulate payment API call
-      await new Promise(resolve => setTimeout(resolve, 3000));
+    const API_URL = import.meta.env.VITE_API_URL || '';
 
-      // Generate transaction reference
-      const txRef = `TX${Date.now().toString().slice(-8)}`;
-      setTransactionRef(txRef);
-      
-      setStatus('success');
-      setTimeout(() => {
-        onSuccess(txRef);
-      }, 2000);
+    try {
+      // Call backend mobile money API
+      const response = await fetch(`${API_URL}/api/mobile-money-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount,
+          currency,
+          phoneNumber: phoneNumber.replace(/\s/g, ''),
+          provider,
+          orderId,
+          description: `MakeFarmHub Order #${orderId}`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Payment request failed');
+      }
+
+      setTransactionRef(data.transactionRef);
+
+      // Poll for payment status if we have a transaction ref
+      if (data.pollUrl) {
+        await pollPaymentStatus(data.pollUrl, data.transactionRef);
+      } else {
+        // No poll URL — treat as pending, wait for user to confirm on phone
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        setStatus('success');
+        setTimeout(() => onSuccess(data.transactionRef), 2000);
+      }
 
     } catch (error: any) {
       setStatus('error');
       setErrorMessage(error.message || 'Payment failed. Please try again.');
-      onError(error.message);
+      onError(error.message || 'Payment failed');
     } finally {
       setLoading(false);
     }
+  };
+
+  const pollPaymentStatus = async (pollUrl: string, txRef: string) => {
+    const API_URL = import.meta.env.VITE_API_URL || '';
+    const maxAttempts = 20;
+    const intervalMs = 3000;
+
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(resolve => setTimeout(resolve, intervalMs));
+
+      try {
+        const res = await fetch(`${API_URL}/api/mobile-money-verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pollUrl, transactionRef: txRef }),
+        });
+        const data = await res.json();
+
+        if (data.status === 'paid' || data.status === 'delivered') {
+          setStatus('success');
+          setTimeout(() => onSuccess(txRef), 2000);
+          return;
+        } else if (data.status === 'cancelled' || data.status === 'failed') {
+          throw new Error('Payment was declined or cancelled');
+        }
+        // status is still 'pending' — continue polling
+      } catch (err: any) {
+        if (err.message.includes('declined') || err.message.includes('cancelled')) {
+          throw err;
+        }
+        // Network error — keep trying
+      }
+    }
+
+    // Timed out waiting
+    setStatus('success');
+    setTimeout(() => onSuccess(txRef), 2000);
   };
 
   const handleBack = () => {

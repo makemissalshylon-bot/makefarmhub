@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Sparkles, TrendingUp, Clock, Heart, ShoppingCart, ChevronRight, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppData } from '../../context/AppDataContext';
-import { Listing } from '../../types';
+import type { Listing } from '../../types';
 import './ProductRecommendations.css';
 
 type RecommendationType = 'personalized' | 'trending' | 'recent' | 'similar';

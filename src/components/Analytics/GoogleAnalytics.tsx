@@ -16,7 +16,7 @@ export const initGA = () => {
   if (typeof window === 'undefined') return;
   
   // Don't initialize if already done
-  if (window.gtag) return;
+  if ((window as any).gtag) return;
 
   // Create script element
   const script = document.createElement('script');

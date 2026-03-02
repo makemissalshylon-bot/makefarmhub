@@ -21,19 +21,19 @@ describe('Skeleton', () => {
 
   it('renders with text variant', () => {
     render(<Skeleton variant="text" />);
-    const skeleton = document.querySelector('.skeleton--text');
+    const skeleton = document.querySelector('.skeleton-text');
     expect(skeleton).toBeInTheDocument();
   });
 
   it('renders with circular variant', () => {
     render(<Skeleton variant="circular" />);
-    const skeleton = document.querySelector('.skeleton--circular');
+    const skeleton = document.querySelector('.skeleton-circular');
     expect(skeleton).toBeInTheDocument();
   });
 
   it('renders with wave animation', () => {
     render(<Skeleton animation="wave" />);
-    const skeleton = document.querySelector('.skeleton--wave');
+    const skeleton = document.querySelector('.skeleton-wave');
     expect(skeleton).toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { loadStripe, Stripe, StripeCardElement } from '@stripe/stripe-js';
+import { loadStripe, type Stripe, type StripeCardElement } from '@stripe/stripe-js';
 import { CreditCard, Lock, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import './StripePayment.css';
 

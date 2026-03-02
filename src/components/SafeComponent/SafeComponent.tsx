@@ -1,4 +1,4 @@
-import React, { Component, ReactNode, Suspense } from 'react';
+import React, { Component, type ReactNode, Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
 
 interface SafeComponentProps {
@@ -52,7 +52,7 @@ class SafeComponent extends Component<SafeComponentProps, SafeComponentState> {
 /**
  * Default loading fallback
  */
-function LoadingFallback(): JSX.Element {
+function LoadingFallback(): React.JSX.Element {
   return (
     <div className="safe-component-loading">
       <Loader2 className="animate-spin" size={24} />

@@ -77,7 +77,7 @@ class PushNotificationService {
       // Subscribe
       this.subscription = await this.registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey,
+        applicationServerKey: applicationServerKey as BufferSource,
       });
 
       console.log('[Push] Subscribed:', this.subscription);
@@ -142,9 +142,8 @@ class PushNotificationService {
         icon: '/icons/icon-192x192.png',
         badge: '/icons/badge-72x72.png',
         tag: 'test',
-        vibrate: [200, 100, 200],
         data: { url: '/' },
-      });
+      } as NotificationOptions);
     } catch (error) {
       console.error('[Push] Test notification error:', error);
     }
@@ -163,10 +162,8 @@ class PushNotificationService {
         badge: payload.badge || '/icons/badge-72x72.png',
         tag: payload.tag || 'default',
         data: { ...payload.data, url: payload.url },
-        actions: payload.actions,
-        vibrate: [200, 100, 200],
         requireInteraction: false,
-      });
+      } as NotificationOptions);
     } catch (error) {
       console.error('[Push] Show notification error:', error);
     }

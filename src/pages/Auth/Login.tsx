@@ -1,36 +1,20 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowRight, Loader2, Mail, Phone, RefreshCw } from 'lucide-react';
+import { ArrowRight, Loader2, Mail, Phone, Lock } from 'lucide-react';
 
 export default function Login() {
   const [identifier, setIdentifier] = useState('');
-  const [otp, setOtp] = useState('');
-  const [step, setStep] = useState<'identifier' | 'otp'>('identifier');
+  const [password, setPassword] = useState('');
+  const [step, setStep] = useState<'identifier' | 'password'>('identifier');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [otpToken, setOtpToken] = useState('');
-  const [devOtp, setDevOtp] = useState('');
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const { login, sendOTP } = useAuth();
+  const { loginWithPassword, checkUserExists } = useAuth();
   const navigate = useNavigate();
 
   const isEmail = identifier.includes('@');
 
-  const startResendCooldown = () => {
-    setResendCooldown(60);
-    const interval = setInterval(() => {
-      setResendCooldown(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const handleSendOTP = async (e: React.FormEvent) => {
+  const handleCheckUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier) {
       setError('Please enter your email or phone number');
@@ -41,57 +25,40 @@ export default function Login() {
 
     // Admin shortcut
     if (identifier.includes('admin') || identifier.includes('000')) {
-      setOtpToken('admin');
-      setStep('otp');
+      setStep('password');
       setIsLoading(false);
-      startResendCooldown();
       return;
     }
 
-    const result = await sendOTP(identifier);
+    const result = await checkUserExists(identifier);
 
-    if (result.success && result.token) {
-      setOtpToken(result.token);
-      if (result.dev_otp) setDevOtp(result.dev_otp);
-      setStep('otp');
-      startResendCooldown();
+    if (result.exists) {
+      // User exists, show password field
+      setStep('password');
     } else {
-      setError(result.error || 'Failed to send verification code');
+      // User doesn't exist, redirect to signup
+      setError('No account found. Redirecting to signup...');
+      setTimeout(() => {
+        navigate('/signup', { state: { identifier } });
+      }, 1500);
     }
     setIsLoading(false);
   };
 
-  const handleResendOTP = async () => {
-    if (resendCooldown > 0) return;
-    setError('');
-    setIsLoading(true);
-
-    const result = await sendOTP(identifier);
-
-    if (result.success && result.token) {
-      setOtpToken(result.token);
-      if (result.dev_otp) setDevOtp(result.dev_otp);
-      startResendCooldown();
-    } else {
-      setError(result.error || 'Failed to resend code');
-    }
-    setIsLoading(false);
-  };
-
-  const handleVerifyOTP = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otp) {
-      setError('Please enter the verification code');
+    if (!password) {
+      setError('Please enter your password');
       return;
     }
     setIsLoading(true);
     setError('');
 
-    const result = await login(identifier, otp, otpToken);
+    const result = await loginWithPassword(identifier, password);
     if (result.success) {
       navigate('/dashboard');
     } else {
-      setError(result.error || 'Verification failed. Please try again.');
+      setError(result.error || 'Login failed. Please check your credentials.');
     }
     setIsLoading(false);
   };
@@ -109,7 +76,7 @@ export default function Login() {
         </div>
 
         {step === 'identifier' ? (
-          <form onSubmit={handleSendOTP} className="auth-form">
+          <form onSubmit={handleCheckUser} className="auth-form">
             <div className="form-group">
               <label htmlFor="identifier">
                 {isEmail ? <Mail size={16} /> : <Phone size={16} />}
@@ -131,39 +98,29 @@ export default function Login() {
               {isLoading ? (
                 <>
                   <Loader2 size={20} className="spinner" />
-                  Sending code...
+                  Checking...
                 </>
               ) : (
                 <>
-                  Send Verification Code
+                  Continue
                   <ArrowRight size={20} />
                 </>
               )}
             </button>
           </form>
         ) : (
-          <form onSubmit={handleVerifyOTP} className="auth-form">
-            {devOtp && (
-              <div className="demo-otp-box">
-                <div className="demo-otp-label">🔑 Your Verification Code</div>
-                <div className="demo-otp-code">{devOtp}</div>
-                <div className="demo-otp-hint">Check your {isEmail ? 'email' : 'phone'} for the code</div>
-              </div>
-            )}
-
+          <form onSubmit={handleLogin} className="auth-form">
             <div className="form-group">
-              <label htmlFor="otp">Enter Verification Code</label>
+              <label htmlFor="password">Password</label>
               <input
-                type="text"
-                id="otp"
-                placeholder="Enter 6-digit code"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                maxLength={6}
-                autoComplete="one-time-code"
-                inputMode="numeric"
+                type="password"
+                id="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
               />
-              <span className="form-hint">Code sent to {identifier}</span>
+              <span className="form-hint">Logging in as {identifier}</span>
             </div>
 
             {error && <div className="form-error">{error}</div>}
@@ -172,11 +129,11 @@ export default function Login() {
               {isLoading ? (
                 <>
                   <Loader2 size={20} className="spinner" />
-                  Verifying...
+                  Signing in...
                 </>
               ) : (
                 <>
-                  Verify & Sign In
+                  Sign In
                   <ArrowRight size={20} />
                 </>
               )}
@@ -186,16 +143,7 @@ export default function Login() {
               <button
                 type="button"
                 className="btn-text"
-                onClick={handleResendOTP}
-                disabled={resendCooldown > 0 || isLoading}
-              >
-                <RefreshCw size={16} />
-                {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
-              </button>
-              <button
-                type="button"
-                className="btn-text"
-                onClick={() => { setStep('identifier'); setOtp(''); setError(''); setDevOtp(''); }}
+                onClick={() => { setStep('identifier'); setPassword(''); setError(''); }}
               >
                 Change {isEmail ? 'email' : 'number'}
               </button>

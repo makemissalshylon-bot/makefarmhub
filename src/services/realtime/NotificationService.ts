@@ -119,11 +119,14 @@ class NotificationService {
    * Get icon based on notification type
    */
   private getNotificationIcon(type: Notification['type']): string {
-    const icons: Record<Notification['type'], string> = {
+    const icons: Record<string, string> = {
       order: '/icons/order.png',
       message: '/icons/message.png',
       payment: '/icons/payment.png',
       system: '/icons/system.png',
+      success: '/icons/success.png',
+      warning: '/icons/warning.png',
+      info: '/icons/info.png',
     };
     return icons[type] || '/icons/default.png';
   }

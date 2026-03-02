@@ -234,7 +234,7 @@ class PWAService {
     if (!this.registration) return;
 
     try {
-      await this.registration.sync.register(tag);
+      await (this.registration as any).sync.register(tag);
       console.log('[PWA] Background sync registered:', tag);
     } catch (error) {
       console.error('[PWA] Background sync error:', error);

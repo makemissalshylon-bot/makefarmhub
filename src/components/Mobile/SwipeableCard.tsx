@@ -1,4 +1,4 @@
-import { useState, useRef, ReactNode } from 'react';
+import { useState, useRef, type ReactNode } from 'react';
 import { Trash2, Heart, Archive } from 'lucide-react';
 import './SwipeableCard.css';
 

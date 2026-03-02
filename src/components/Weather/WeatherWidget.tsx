@@ -283,7 +283,7 @@ export default function WeatherWidget({ location = 'Harare, Zimbabwe', compact =
   };
 
   const getWeatherIcon = (condition: string, size = 24) => {
-    const icons: Record<string, JSX.Element> = {
+    const icons: Record<string, React.JSX.Element> = {
       sunny: <Sun size={size} className="weather-icon sunny" />,
       cloudy: <Cloud size={size} className="weather-icon cloudy" />,
       rainy: <CloudRain size={size} className="weather-icon rainy" />,

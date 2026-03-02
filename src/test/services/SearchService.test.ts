@@ -72,6 +72,8 @@ const mockListings: Listing[] = [
 describe('SearchService', () => {
   beforeEach(() => {
     searchService.clearHistory();
+    // Also clear saved searches
+    searchService.getSavedSearches().forEach(s => searchService.deleteSavedSearch(s.id));
   });
 
   describe('search', () => {

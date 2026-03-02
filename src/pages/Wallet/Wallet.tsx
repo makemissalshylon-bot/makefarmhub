@@ -21,6 +21,8 @@ import {
   EyeOff,
   Copy,
   ExternalLink,
+  X,
+  AlertCircle,
 } from 'lucide-react';
 import { mockPaymentMethods, mockEscrowPayments } from '../../data/mockData';
 

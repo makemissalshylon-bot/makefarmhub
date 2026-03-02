@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/UI/Toast';
-import ImageUpload, { UploadedImage } from '../../components/Upload/ImageUpload';
+import ImageUpload, { type UploadedImage } from '../../components/Upload/ImageUpload';
 import Breadcrumbs from '../../components/UI/Breadcrumbs';
 import LoadingState from '../../components/UI/LoadingState';
 import {

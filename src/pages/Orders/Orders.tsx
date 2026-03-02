@@ -102,13 +102,28 @@ export default function Orders() {
       const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
       return matchesSearch && matchesStatus;
     })
-    // Sort: newest orders first, pending orders at top
+    // Sort: recent purchases and active orders at top
     .sort((a, b) => {
-      // Pending orders always first
-      if (a.status === 'pending' && b.status !== 'pending') return -1;
-      if (b.status === 'pending' && a.status !== 'pending') return 1;
-      // Then by date (newest first)
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      const now = Date.now();
+      const aDate = new Date(a.createdAt).getTime();
+      const bDate = new Date(b.createdAt).getTime();
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      
+      const aIsRecent = (now - aDate) < oneDayMs;
+      const bIsRecent = (now - bDate) < oneDayMs;
+      const aIsActive = ['pending', 'accepted', 'in_transit'].includes(a.status);
+      const bIsActive = ['pending', 'accepted', 'in_transit'].includes(b.status);
+      
+      // Very recent orders (last 24h) at the very top
+      if (aIsRecent && !bIsRecent) return -1;
+      if (!aIsRecent && bIsRecent) return 1;
+      
+      // Then active orders
+      if (aIsActive && !bIsActive) return -1;
+      if (!aIsActive && bIsActive) return 1;
+      
+      // Finally sort by date (newest first)
+      return bDate - aDate;
     });
 
   // Handle Pay Now

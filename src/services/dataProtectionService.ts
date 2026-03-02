@@ -30,7 +30,7 @@ class DataProtectionService {
   private backupInterval: number = 5 * 60 * 1000; // 5 minutes
   private maxBackups: number = 50;
   private autoBackupEnabled: boolean = true;
-  private backupTimer: NodeJS.Timeout | null = null;
+  private backupTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.initializeAutoBackup();

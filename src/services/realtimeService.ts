@@ -26,7 +26,7 @@ class RealtimeService {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
-  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private messageQueue: RealtimeMessage[] = [];
 
   /**

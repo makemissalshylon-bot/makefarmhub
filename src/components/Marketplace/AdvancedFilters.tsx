@@ -1,4 +1,4 @@
-import { Slider, Check } from 'lucide-react';
+import { Sliders, Check } from 'lucide-react';
 import './AdvancedFilters.css';
 
 interface AdvancedFiltersProps {
@@ -40,7 +40,7 @@ export default function AdvancedFilters({
     <div className="advanced-filters">
       <div className="filters-header">
         <h3>
-          <Slider size={20} />
+          <Sliders size={20} />
           Advanced Filters
         </h3>
         {activeFilterCount > 0 && (

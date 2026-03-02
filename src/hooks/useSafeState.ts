@@ -108,9 +108,9 @@ export function useSafeLocalStorage<T>(
   key: string,
   initialValue: T
 ): [T, (value: T) => void, () => void] {
-  const [storedValue, setStoredValue] = useSafeState<T>(() => {
-    return crashProtectionService.safeStorageGet(key, initialValue);
-  });
+  const [storedValue, setStoredValue] = useSafeState<T>(
+    crashProtectionService.safeStorageGet(key, initialValue)
+  );
 
   const setValue = useCallback((value: T) => {
     setStoredValue(value);

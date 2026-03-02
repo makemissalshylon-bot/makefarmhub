@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   TrendingUp,
@@ -20,6 +20,8 @@ import {
   Clock,
   ChevronRight,
 } from 'lucide-react';
+import { isSupabaseReady } from '../../lib/supabase';
+import { adminService } from '../../services/supabase/adminService';
 import {
   mockAdminStats,
   revenueByMonth,
@@ -30,9 +32,16 @@ import '../../styles/admin-analytics.css';
 
 export default function AdminAnalytics() {
   const [timeRange, setTimeRange] = useState('30d');
-  const stats = mockAdminStats;
+  const [stats, setStats] = useState(mockAdminStats);
 
-  // Calculate growth percentages (mock data)
+  useEffect(() => {
+    if (isSupabaseReady()) {
+      adminService.getStats().then(liveStats => {
+        setStats(prev => ({ ...prev, ...liveStats }));
+      }).catch(() => {});
+    }
+  }, []);
+
   const growthData = {
     revenue: { value: 12.5, trend: 'up' },
     users: { value: 8.3, trend: 'up' },
