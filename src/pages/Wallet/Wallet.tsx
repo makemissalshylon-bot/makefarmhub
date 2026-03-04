@@ -24,7 +24,6 @@ import {
   X,
   AlertCircle,
 } from 'lucide-react';
-import { mockPaymentMethods, mockEscrowPayments } from '../../data/mockData';
 
 export default function Wallet() {
   const { user } = useAuth();
@@ -43,13 +42,24 @@ export default function Wallet() {
   const [disputeOrderId, setDisputeOrderId] = useState<string | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
 
-  // Filter payment methods for current user
-  const paymentMethods = mockPaymentMethods.filter(pm => pm.userId === (user?.id || 'farmer-1'));
+  // Payment methods (stored locally for now)
+  const [paymentMethods] = useState(() => {
+    const stored = localStorage.getItem('makefarmhub_payment_methods');
+    return stored ? JSON.parse(stored) : [];
+  });
   
-  // Filter escrow payments
-  const escrowPayments = mockEscrowPayments.filter(
-    e => e.buyerId === user?.id || e.sellerId === user?.id
-  );
+  // Escrow payments derived from wallet transactions
+  const escrowPayments = walletTransactions
+    .filter(t => t.type === 'escrow')
+    .map(t => ({
+      id: t.id,
+      orderId: t.description.match(/order\s+(\S+)/i)?.[1] || '',
+      amount: t.amount,
+      status: t.status,
+      date: t.date,
+      buyerId: user?.id || '',
+      sellerId: '',
+    }));
 
   const handleDeposit = () => {
     const amount = parseFloat(depositAmount);
@@ -320,13 +330,14 @@ export default function Wallet() {
 
         {activeTab === 'escrow' && (
           <div className="escrow-list">
-            {mockEscrowPayments.map((escrow) => (
+            {escrowPayments.length > 0 ? escrowPayments.map((escrow: any) => (
               <div key={escrow.id} className="escrow-card">
                 <div className="escrow-header">
                   <span className={`escrow-status ${escrow.status}`}>
                     {escrow.status === 'held' && <Lock size={14} />}
                     {escrow.status === 'released' && <CheckCircle size={14} />}
                     {escrow.status === 'pending' && <Clock size={14} />}
+                    {escrow.status === 'completed' && <CheckCircle size={14} />}
                     {escrow.status}
                   </span>
                   <span className="escrow-id">#{escrow.orderId}</span>
@@ -334,36 +345,22 @@ export default function Wallet() {
                 <div className="escrow-body">
                   <div className="escrow-amounts">
                     <div className="amount-row">
-                      <span>Product Amount</span>
+                      <span>Amount</span>
                       <span>{formatCurrency(escrow.amount)}</span>
                     </div>
                     <div className="amount-row">
                       <span>Platform Fee (5%)</span>
-                      <span>{formatCurrency(escrow.platformFee)}</span>
-                    </div>
-                    <div className="amount-row">
-                      <span>Transport Fee</span>
-                      <span>{formatCurrency(escrow.transportFee)}</span>
+                      <span>{formatCurrency(escrow.amount * 0.05)}</span>
                     </div>
                     <div className="amount-row total">
                       <span>Total</span>
-                      <span>{formatCurrency(escrow.totalAmount)}</span>
+                      <span>{formatCurrency(escrow.amount * 1.05)}</span>
                     </div>
                   </div>
                   <div className="escrow-info">
                     <p>
-                      <strong>Payment Method:</strong> {escrow.paymentMethod}
+                      <strong>Date:</strong> {new Date(escrow.date).toLocaleString()}
                     </p>
-                    {escrow.paidAt && (
-                      <p>
-                        <strong>Paid:</strong> {new Date(escrow.paidAt).toLocaleString()}
-                      </p>
-                    )}
-                    {escrow.releasedAt && (
-                      <p>
-                        <strong>Released:</strong> {new Date(escrow.releasedAt).toLocaleString()}
-                      </p>
-                    )}
                   </div>
                 </div>
                 {escrow.status === 'held' && user?.role === 'buyer' && (
@@ -395,7 +392,12 @@ export default function Wallet() {
                   </div>
                 )}
               </div>
-            ))}
+            )) : (
+              <div className="empty-state">
+                <Shield size={40} />
+                <p>No escrow payments yet</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -409,7 +411,7 @@ export default function Wallet() {
               </button>
             </div>
             <div className="methods-list">
-              {paymentMethods.map((method) => (
+              {paymentMethods.map((method: any) => (
                 <div key={method.id} className={`method-card ${method.isDefault ? 'default' : ''}`}>
                   <div className="method-icon">
                     {getPaymentMethodIcon(method.type, method.provider)}

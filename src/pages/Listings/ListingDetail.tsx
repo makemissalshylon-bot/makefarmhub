@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { mockListings, mockReviews, mockSellerStats } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
 import { useAppData } from '../../context/AppDataContext';
 import { useToast } from '../../components/UI/Toast';
@@ -31,7 +30,7 @@ export default function ListingDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { addReview, createOrder, toggleFavorite, isFavorite: checkIsFavorite, createNotification } = useAppData();
+  const { addReview, createOrder, toggleFavorite, isFavorite: checkIsFavorite, createNotification, listings, reviews: appReviews } = useAppData();
   const { showToast } = useToast();
   const [currentImage, setCurrentImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -43,7 +42,7 @@ export default function ListingDetail() {
   const [purchasedItem, setPurchasedItem] = useState<string | null>(null);
 
   // Find listing and check if it was purchased
-  const rawListing = mockListings.find((l) => l.id === id);
+  const rawListing = listings.find((l) => l.id === id);
   const [listing, setListing] = useState(rawListing);
   
   // Track if item is sold out
@@ -72,15 +71,16 @@ export default function ListingDetail() {
   }
 
   const totalPrice = listing.price * quantity;
-  const similarListings = mockListings
+  const similarListings = listings
     .filter((l) => l.category === listing.category && l.id !== listing.id)
     .slice(0, 4);
 
   // Get reviews for this listing or seller
-  const listingReviews = mockReviews.filter(
+  const listingReviews = appReviews.filter(
     (r) => r.targetId === listing.id || r.targetId === listing.sellerId
   );
-  const sellerStats = mockSellerStats[listing.sellerId];
+  const avgRating = listingReviews.length > 0 ? listingReviews.reduce((sum, r) => sum + r.rating, 0) / listingReviews.length : 0;
+  const sellerStats = { rating: avgRating, totalSales: 0, responseTime: 'N/A' };
 
   const handleSubmitReview = (review: { rating: number; title: string; comment: string }) => {
     addReview({
@@ -435,8 +435,8 @@ export default function ListingDetail() {
 
       {/* Reviews Section */}
       <ReviewsSection
-        reviews={listingReviews}
-        sellerStats={sellerStats}
+        reviews={listingReviews as any}
+        sellerStats={sellerStats as any}
         onWriteReview={() => setShowReviewModal(true)}
         showWriteButton={user?.role === 'buyer'}
       />

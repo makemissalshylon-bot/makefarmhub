@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { mockVehicles } from '../../data/mockData';
+import { useAuth } from '../../context/AuthContext';
+import { useAppData } from '../../context/AppDataContext';
 import {
   Plus,
   Search,
@@ -15,20 +16,21 @@ import {
 } from 'lucide-react';
 
 export default function Vehicles() {
+  const { user } = useAuth();
+  const { vehicles } = useAppData();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   // Filter vehicles for current transporter
-  const myVehicles = mockVehicles.filter((v) => v.ownerId === 'transporter-1');
+  const myVehicles = vehicles.filter((v) => v.ownerId === user?.id);
 
   const filteredVehicles = myVehicles.filter((vehicle) =>
     vehicle.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     vehicle.type.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const toggleAvailability = (vehicleId: string) => {
+  const toggleAvailability = (_vehicleId: string) => {
     // In real app, this would update the backend
-    console.log('Toggle availability for:', vehicleId);
   };
 
   return (

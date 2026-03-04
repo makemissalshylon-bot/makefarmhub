@@ -235,8 +235,6 @@ export default function CreateListing() {
     }
 
     setIsSubmitting(true);
-    console.log('Submitting:', form);
-    
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1500));
     

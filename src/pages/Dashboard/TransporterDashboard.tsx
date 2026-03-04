@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { transporterStats, mockVehicles, mockTransportRequests } from '../../data/mockData';
+import { useAppData } from '../../context/AppDataContext';
 import {
   Truck,
   Package,
@@ -17,14 +17,20 @@ import {
 
 export default function TransporterDashboard() {
   const { user } = useAuth();
-  const myVehicles = mockVehicles.filter(v => v.ownerId === (user?.id || 'transporter-1'));
-  const requests = mockTransportRequests.slice(0, 3);
+  const { vehicles, transportRequests, walletBalance } = useAppData();
+  const myVehicles = vehicles.filter(v => v.ownerId === user?.id);
+  const requests = transportRequests.filter(r => r.transporterId === user?.id || r.status === 'pending').slice(0, 3);
+
+  const activeTrips = transportRequests.filter(r => r.transporterId === user?.id && r.status === 'in_progress').length;
+  const pendingRequests = transportRequests.filter(r => r.status === 'pending').length;
+  const completedTrips = transportRequests.filter(r => r.transporterId === user?.id && r.status === 'completed');
+  const totalEarnings = completedTrips.reduce((sum, r) => sum + (r.estimatedPrice || 0), 0);
 
   const stats = [
-    { label: 'Active Trips', value: transporterStats.activeTrips, icon: Navigation, color: 'blue' },
-    { label: 'Pending Requests', value: transporterStats.pendingRequests, icon: Package, color: 'orange' },
-    { label: 'This Month', value: `$${transporterStats.thisMonthEarnings}`, icon: DollarSign, color: 'gold' },
-    { label: 'Rating', value: transporterStats.rating, icon: Star, color: 'green' },
+    { label: 'Active Trips', value: activeTrips, icon: Navigation, color: 'blue' },
+    { label: 'Pending Requests', value: pendingRequests, icon: Package, color: 'orange' },
+    { label: 'Earnings', value: `$${totalEarnings.toLocaleString()}`, icon: DollarSign, color: 'gold' },
+    { label: 'Vehicles', value: myVehicles.length, icon: Star, color: 'green' },
   ];
 
   const getStatusBadge = (status: string) => {
@@ -155,16 +161,16 @@ export default function TransporterDashboard() {
           <div className="earnings-content">
             <div className="earnings-main">
               <span className="earnings-label">Total Earnings</span>
-              <span className="earnings-value">${transporterStats.totalEarnings}</span>
+              <span className="earnings-value">${totalEarnings.toLocaleString()}</span>
             </div>
             <div className="earnings-breakdown">
               <div className="breakdown-item">
                 <span>Completed Trips</span>
-                <strong>{transporterStats.totalTrips}</strong>
+                <strong>{completedTrips.length}</strong>
               </div>
               <div className="breakdown-item">
                 <span>Avg per Trip</span>
-                <strong>${Math.round(transporterStats.totalEarnings / transporterStats.totalTrips)}</strong>
+                <strong>${completedTrips.length > 0 ? Math.round(totalEarnings / completedTrips.length) : 0}</strong>
               </div>
             </div>
           </div>

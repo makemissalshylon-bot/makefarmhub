@@ -35,7 +35,6 @@ export default function ReviewsSection({
 
   const handleHelpful = (reviewId: string) => {
     // In a real app, this would update the helpful count via API
-    console.log('Marked helpful:', reviewId);
   };
 
   return (

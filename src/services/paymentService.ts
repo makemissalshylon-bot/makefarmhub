@@ -108,7 +108,6 @@ class PaymentService {
     provider: 'ecocash' | 'onemoney' | 'telecash'
   ): Promise<Transaction> {
     // In production, integrate with mobile money API
-    console.log(`Processing ${provider} payment: ${phoneNumber} - $${amount}`);
 
     const transaction: Transaction = {
       id: this.generateTransactionId(),
@@ -149,7 +148,6 @@ class PaymentService {
     amount: number
   ): Promise<Transaction> {
     // In production, use payment gateway like Stripe, PayStack, etc.
-    console.log('Processing card payment:', amount);
 
     const transaction: Transaction = {
       id: this.generateTransactionId(),

@@ -22,7 +22,6 @@ class PWAService {
    */
   async registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
     if (!('serviceWorker' in navigator)) {
-      console.log('[PWA] Service workers not supported');
       return null;
     }
 
@@ -32,8 +31,6 @@ class PWAService {
       });
 
       this.registration = registration;
-
-      console.log('[PWA] Service worker registered:', registration.scope);
 
       // Check for updates
       registration.addEventListener('updatefound', () => {
@@ -63,7 +60,6 @@ class PWAService {
 
     try {
       const success = await this.registration.unregister();
-      console.log('[PWA] Service worker unregistered:', success);
       return success;
     } catch (error) {
       console.error('[PWA] Service worker unregistration failed:', error);
@@ -80,7 +76,6 @@ class PWAService {
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as any).standalone === true;
 
-    console.log('[PWA] Is installed:', this.isInstalled);
   }
 
   /**
@@ -90,11 +85,9 @@ class PWAService {
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       this.deferredPrompt = e as BeforeInstallPromptEvent;
-      console.log('[PWA] Install prompt ready');
     });
 
     window.addEventListener('appinstalled', () => {
-      console.log('[PWA] App installed');
       this.isInstalled = true;
       this.deferredPrompt = null;
     });
@@ -105,15 +98,12 @@ class PWAService {
    */
   async showInstallPrompt(): Promise<boolean> {
     if (!this.deferredPrompt) {
-      console.log('[PWA] Install prompt not available');
       return false;
     }
 
     try {
       await this.deferredPrompt.prompt();
       const { outcome } = await this.deferredPrompt.userChoice;
-      
-      console.log('[PWA] Install prompt outcome:', outcome);
       
       this.deferredPrompt = null;
       return outcome === 'accepted';
@@ -141,8 +131,6 @@ class PWAService {
    * Handle service worker update
    */
   private onUpdateAvailable(): void {
-    console.log('[PWA] New version available');
-    
     // Notify user
     const shouldUpdate = confirm(
       'A new version of MAKEFARMHUB is available. Would you like to update now?'
@@ -191,7 +179,6 @@ class PWAService {
     try {
       const cacheNames = await caches.keys();
       await Promise.all(cacheNames.map(name => caches.delete(name)));
-      console.log('[PWA] All caches cleared');
     } catch (error) {
       console.error('[PWA] Cache clear error:', error);
     }
@@ -235,7 +222,6 @@ class PWAService {
 
     try {
       await (this.registration as any).sync.register(tag);
-      console.log('[PWA] Background sync registered:', tag);
     } catch (error) {
       console.error('[PWA] Background sync error:', error);
     }
@@ -246,7 +232,6 @@ class PWAService {
    */
   async share(data: { title?: string; text?: string; url?: string }): Promise<boolean> {
     if (!('share' in navigator)) {
-      console.log('[PWA] Web Share API not supported');
       return false;
     }
 

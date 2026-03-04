@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { buyerStats, mockListings, mockOrders } from '../../data/mockData';
+import { useAppData } from '../../context/AppDataContext';
 import ProductRecommendations from '../../components/Recommendations/ProductRecommendations';
 import {
   ShoppingBag,
@@ -18,16 +18,21 @@ import {
 
 export default function BuyerDashboard() {
   const { user } = useAuth();
+  const { orders, listings, favorites } = useAppData();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const featuredListings = mockListings.filter(l => l.featured).slice(0, 4);
-  const myOrders = mockOrders.filter(o => o.buyerId === (user?.id || 'buyer-1')).slice(0, 3);
+  const featuredListings = listings.filter(l => l.featured).slice(0, 4);
+  const myOrders = orders.filter(o => o.buyerId === user?.id).slice(0, 3);
+
+  const activeOrders = orders.filter(o => o.buyerId === user?.id && !['completed', 'cancelled', 'delivered'].includes(o.status)).length;
+  const completedOrders = orders.filter(o => o.buyerId === user?.id && (o.status === 'completed' || o.status === 'delivered')).length;
+  const totalSpent = orders.filter(o => o.buyerId === user?.id && o.status === 'completed').reduce((sum, o) => sum + o.totalPrice, 0);
 
   const stats = [
-    { label: 'Active Orders', value: buyerStats.pendingOrders, icon: ShoppingBag, color: 'orange' },
-    { label: 'Completed', value: buyerStats.completedOrders, icon: CheckCircle, color: 'green' },
-    { label: 'Total Spent', value: `$${buyerStats.totalSpent}`, icon: DollarSign, color: 'blue' },
-    { label: 'Saved Items', value: buyerStats.savedListings, icon: Heart, color: 'red' },
+    { label: 'Active Orders', value: activeOrders, icon: ShoppingBag, color: 'orange' },
+    { label: 'Completed', value: completedOrders, icon: CheckCircle, color: 'green' },
+    { label: 'Total Spent', value: `$${totalSpent.toLocaleString()}`, icon: DollarSign, color: 'blue' },
+    { label: 'Saved Items', value: favorites.length, icon: Heart, color: 'red' },
   ];
 
   const handleSearch = (e: React.FormEvent) => {

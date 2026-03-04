@@ -61,7 +61,6 @@ export default function AdminNotifications() {
   ]);
 
   const handleSendNotification = () => {
-    console.log('Sending notification:', notificationData);
     // API call to send push notification
     setShowComposer(false);
     setNotificationData({

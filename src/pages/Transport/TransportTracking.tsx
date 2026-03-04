@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useAppData } from '../../context/AppDataContext';
 import { useToast } from '../../components/UI/Toast';
-import { mockTransportRequests, mockVehicles, mockOrders } from '../../data/mockData';
 import {
   Truck,
   MapPin,
@@ -38,7 +38,7 @@ export default function TransportTracking() {
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<TabType>('active');
-  const [selectedRequest, setSelectedRequest] = useState<typeof mockTransportRequests[0] | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [confirmationData, setConfirmationData] = useState<DeliveryConfirmation>({
@@ -48,16 +48,18 @@ export default function TransportTracking() {
     rating: 5,
   });
 
+  const { transportRequests, orders, vehicles } = useAppData();
+
   // Enhanced transport requests with more details
-  const enhancedRequests = mockTransportRequests.map(req => {
-    const order = mockOrders.find(o => o.id === req.orderId);
-    const vehicle = mockVehicles.find(v => v.id === req.vehicleId);
+  const enhancedRequests = transportRequests.map(req => {
+    const order = orders.find(o => o.id === req.orderId);
+    const vehicle = vehicles.find(v => v.id === req.vehicleId);
     return {
       ...req,
       order,
       vehicle,
       estimatedArrival: '2:30 PM',
-      currentLocation: 'Kwekwe, Zimbabwe',
+      currentLocation: 'En route',
       progress: req.status === 'in_progress' ? 65 : req.status === 'completed' ? 100 : 0,
     };
   });

@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { mockUsers, mockReviews } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
 import { useAppData } from '../../context/AppDataContext';
 import { useToast } from '../../components/UI/Toast';
@@ -25,7 +24,7 @@ import '../../styles/order-detail.css';
 export default function OrderDetail() {
   const { id } = useParams();
   const { user } = useAuth();
-  const { orders } = useAppData();
+  const { orders, reviews: appReviews } = useAppData();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const invoiceRef = useRef<HTMLDivElement>(null);
@@ -52,8 +51,8 @@ export default function OrderDetail() {
     );
   }
 
-  const buyer = mockUsers.find((u) => u.id === order.buyerId);
-  const seller = mockUsers.find((u) => u.id === order.sellerId);
+  const buyer = { id: order.buyerId, name: order.buyerName || 'Buyer', avatar: '', phone: '', email: '', location: '' };
+  const seller = { id: order.sellerId, name: order.sellerName || 'Seller', avatar: '', phone: '', email: '', location: '' };
   const isBuyer = user?.id === order.buyerId;
   const isSeller = user?.id === order.sellerId;
 
@@ -101,12 +100,10 @@ export default function OrderDetail() {
   ];
 
   const handleConfirmDelivery = () => {
-    console.log('Confirming delivery for order:', order.id);
     // API call would update order status to 'completed'
   };
 
   const handleCancelOrder = () => {
-    console.log('Cancelling order:', order.id);
     // API call would update order status to 'cancelled'
   };
 
@@ -185,7 +182,6 @@ export default function OrderDetail() {
       comment: reviewComment,
       targetId: isBuyer ? order.sellerId : order.buyerId,
     };
-    console.log('Submitting review:', newReview);
     alert('Review submitted successfully!');
     setShowReviewModal(false);
     setReviewRating(0);
@@ -194,13 +190,13 @@ export default function OrderDetail() {
   };
 
   // Get existing review for this order
-  const existingReview = mockReviews.find(
-    (r) => r.orderId === order.id && r.reviewerId === user?.id
+  const existingReview = appReviews.find(
+    (r: any) => r.orderId === order.id && r.reviewerId === user?.id
   );
 
   // Get reviews about the other party
   const otherPartyId = isBuyer ? order.sellerId : order.buyerId;
-  const otherPartyReviews = mockReviews.filter((r) => r.targetId === otherPartyId).slice(0, 3);
+  const otherPartyReviews = appReviews.filter((r: any) => r.targetId === otherPartyId).slice(0, 3);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -466,15 +462,15 @@ export default function OrderDetail() {
               </h3>
               
               <div className="reviews-list">
-                {otherPartyReviews.map((review) => (
+                {otherPartyReviews.map((review: any) => (
                   <div key={review.id} className="review-item-mini">
                     <div className="review-header-mini">
                       <img
-                        src={review.reviewerAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.reviewerName)}&background=0a6b2b&color=fff&size=32`}
-                        alt={review.reviewerName}
+                        src={review.reviewerAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.reviewerName || review.authorName || 'User')}&background=0a6b2b&color=fff&size=32`}
+                        alt={review.reviewerName || review.authorName || 'User'}
                       />
                       <div>
-                        <span className="reviewer-name">{review.reviewerName}</span>
+                        <span className="reviewer-name">{review.reviewerName || review.authorName || 'User'}</span>
                         <div className="review-stars">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <Star

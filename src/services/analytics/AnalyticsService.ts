@@ -96,7 +96,6 @@ class AnalyticsService {
     // Track initial page view
     this.trackPageView();
 
-    console.log('[Analytics] Initialized with session:', this.sessionId);
   }
 
   /**
@@ -266,7 +265,6 @@ class AnalyticsService {
     };
 
     this.eventQueue.push(event);
-    console.log('[Analytics] Event:', name, properties);
 
     // Flush if queue is large
     if (this.eventQueue.length >= 20) {
@@ -343,7 +341,6 @@ class AnalyticsService {
     };
 
     this.metricsQueue.push(metric);
-    console.log('[Analytics] Metric:', name, value, unit);
   }
 
   /**
@@ -382,7 +379,6 @@ class AnalyticsService {
 
     // In production, send to analytics server
     // For now, just log
-    console.log('[Analytics] Flush:', payload);
 
     // Example: Send to server
     // try {

@@ -45,7 +45,6 @@ class RealtimeService {
         this.ws = new WebSocket(`${wsUrl}?userId=${userId || ''}`);
 
         this.ws.onopen = () => {
-          console.log('[RT] WebSocket connected');
           this.setStatus('connected');
           this.reconnectAttempts = 0;
           this.startHeartbeat();
@@ -62,7 +61,6 @@ class RealtimeService {
         };
 
         this.ws.onclose = () => {
-          console.log('[RT] WebSocket disconnected');
           this.setStatus('disconnected');
           this.stopHeartbeat();
           this.attemptReconnect(userId);
@@ -78,7 +76,6 @@ class RealtimeService {
       }
     } else {
       // Development: Simulate connected state
-      console.log('[RT] No WebSocket URL configured, using local simulation');
       setTimeout(() => {
         this.setStatus('connected');
       }, 500);
@@ -190,7 +187,6 @@ class RealtimeService {
 
   private attemptReconnect(userId?: string): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('[RT] Max reconnect attempts reached');
       this.setStatus('error');
       return;
     }
@@ -198,7 +194,6 @@ class RealtimeService {
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
     
-    console.log(`[RT] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
     setTimeout(() => {
       this.connect(userId);
     }, delay);

@@ -47,7 +47,6 @@ class RealtimeService {
     // Start simulations for demo
     this.startSimulations();
 
-    console.log('[Realtime] Connected for user:', userId);
   }
 
   /**
@@ -66,7 +65,6 @@ class RealtimeService {
     // Emit connection status
     eventEmitter.emit(EVENTS.CONNECTION_STATUS, { connected: false });
 
-    console.log('[Realtime] Disconnected');
   }
 
   /**
@@ -83,7 +81,6 @@ class RealtimeService {
     this.heartbeatTimer = window.setInterval(() => {
       if (this.isConnected) {
         // In real implementation, send ping to server
-        console.log('[Realtime] Heartbeat');
       }
     }, this.config.heartbeatInterval);
   }

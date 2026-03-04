@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { mockListings } from '../../data/mockData';
+import { useAuth } from '../../context/AuthContext';
+import { useAppData } from '../../context/AppDataContext';
 import {
   Plus,
   Search,
@@ -22,6 +23,8 @@ import {
 type FilterStatus = 'all' | 'active' | 'reserved' | 'sold' | 'draft';
 
 export default function MyListings() {
+  const { user } = useAuth();
+  const { listings } = useAppData();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
@@ -30,8 +33,8 @@ export default function MyListings() {
   const [showOffersModal, setShowOffersModal] = useState(false);
   const [selectedListingOffers, setSelectedListingOffers] = useState<any>(null);
 
-  // Filter listings for current farmer
-  const myListings = mockListings.filter((l) => l.sellerId === 'farmer-1');
+  // Filter listings for current user
+  const myListings = listings.filter((l) => l.sellerId === user?.id);
 
   const filteredListings = myListings.filter((listing) => {
     const matchesSearch = listing.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -63,7 +66,6 @@ export default function MyListings() {
   };
 
   const handleMarkAsSold = (listingId: string) => {
-    console.log('Marking as sold:', listingId);
     alert('Listing marked as sold!');
     setActiveMenu(null);
   };
@@ -75,7 +77,6 @@ export default function MyListings() {
   };
 
   const handleDelete = () => {
-    console.log('Deleting listing:', listingToDelete);
     alert('Listing deleted successfully!');
     setShowDeleteModal(false);
     setListingToDelete(null);
@@ -94,7 +95,6 @@ export default function MyListings() {
   };
 
   const handleOffer = (offerId: string, action: 'accept' | 'reject') => {
-    console.log(`${action} offer:`, offerId);
     alert(`Offer ${action}ed!`);
   };
 
@@ -241,7 +241,7 @@ export default function MyListings() {
                           <Link to={`/messages`}>
                             <MessageSquare size={16} /> Messages
                           </Link>
-                          <button onClick={() => console.log('View analytics')}>
+                          <button onClick={() => {}}>
                             <BarChart size={16} /> Analytics
                           </button>
                           <button className="delete" onClick={() => confirmDelete(listing.id)}>

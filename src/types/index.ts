@@ -111,6 +111,7 @@ export interface Vehicle {
 export interface TransportRequest {
   id: string;
   orderId: string;
+  transporterId?: string;
   pickupLocation: string;
   deliveryLocation: string;
   distance: number;

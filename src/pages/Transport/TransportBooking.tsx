@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAppData } from '../../context/AppDataContext';
 import { useToast } from '../../components/UI/Toast';
-import { mockVehicles, mockOrders } from '../../data/mockData';
 import {
   Truck,
   MapPin,
@@ -41,13 +40,13 @@ interface BookingForm {
 
 export default function TransportBooking() {
   const { user } = useAuth();
-  const { bookTransport } = useAppData();
+  const { bookTransport, orders, vehicles } = useAppData();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [filter, setFilter] = useState<VehicleFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showBookingModal, setShowBookingModal] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<typeof mockVehicles[0] | null>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
   const [bookingStep, setBookingStep] = useState(1);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   
@@ -64,13 +63,13 @@ export default function TransportBooking() {
   });
 
   // Get user's pending orders that need transport
-  const pendingOrders = mockOrders.filter(
+  const pendingOrders = orders.filter(
     order => (order.buyerId === user?.id || order.sellerId === user?.id) && 
     !order.transporterId && 
     order.status === 'pending'
   );
 
-  const filteredVehicles = mockVehicles.filter(vehicle => {
+  const filteredVehicles = vehicles.filter(vehicle => {
     const matchesFilter = filter === 'all' || vehicle.type === filter;
     const matchesSearch = vehicle.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          vehicle.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -97,7 +96,7 @@ export default function TransportBooking() {
     }
   };
 
-  const handleSelectVehicle = (vehicle: typeof mockVehicles[0]) => {
+  const handleSelectVehicle = (vehicle: any) => {
     setSelectedVehicle(vehicle);
     setBookingForm({ ...bookingForm, vehicleId: vehicle.id });
     setShowBookingModal(true);
@@ -170,7 +169,7 @@ export default function TransportBooking() {
             <CheckCircle size={24} />
           </div>
           <div className="stat-info">
-            <span className="stat-value">{mockVehicles.filter(v => v.available).length}</span>
+            <span className="stat-value">{vehicles.filter(v => v.available).length}</span>
             <span className="stat-label">Available Vehicles</span>
           </div>
         </div>

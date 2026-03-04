@@ -70,7 +70,6 @@ class DataProtectionService {
       this.createBackup('auto', 'Scheduled auto-backup');
     }, this.backupInterval);
 
-    console.log('✅ Auto-backup started - saving every 5 minutes');
   }
 
   /**
@@ -109,7 +108,6 @@ class DataProtectionService {
     // Clean old backups
     this.cleanOldBackups();
 
-    console.log(`💾 Backup created: ${backup.id} (${this.formatBytes(backup.size)})`);
 
     return backup;
   }
@@ -207,7 +205,6 @@ class DataProtectionService {
         }
       });
 
-      console.log(`✅ Data restored from backup: ${backupId}`);
       
       // Create recovery point
       this.createRecoveryPoint(
@@ -255,7 +252,6 @@ class DataProtectionService {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    console.log(`📥 Backup exported: ${backup.id}`);
   }
 
   /**
@@ -274,7 +270,6 @@ class DataProtectionService {
       // Save imported backup
       this.saveBackup(backup);
 
-      console.log(`📤 Backup imported: ${backup.id}`);
       return true;
     } catch (error) {
       console.error('Failed to import backup:', error);
@@ -337,7 +332,6 @@ class DataProtectionService {
       const transaction = db.transaction(['backups'], 'readwrite');
       const store = transaction.objectStore('backups');
       store.add(backup);
-      console.log('Backup saved to IndexedDB');
     } catch (error) {
       console.error('Failed to save to IndexedDB:', error);
     }
@@ -483,8 +477,6 @@ export const dataProtectionService = new DataProtectionService();
 
 // Auto-initialize
 if (typeof window !== 'undefined') {
-  console.log('🛡️ Data Protection Service initialized');
-  console.log('💾 Auto-backup: Enabled (every 5 minutes)');
 }
 
 export default dataProtectionService;

@@ -181,7 +181,6 @@ export function useSafeFetch<T>(
       } catch (err) {
         attemptRef.current++;
         if (attemptRef.current < retries) {
-          console.log(`Retry attempt ${attemptRef.current}/${retries}`);
           await new Promise(resolve => setTimeout(resolve, 1000 * attemptRef.current));
           return attemptFetch();
         }

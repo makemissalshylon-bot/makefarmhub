@@ -21,7 +21,6 @@ class NotificationService {
    */
   async checkPermission(): Promise<boolean> {
     if (!('Notification' in window)) {
-      console.log('[Notifications] Not supported in this browser');
       return false;
     }
 

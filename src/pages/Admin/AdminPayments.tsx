@@ -87,17 +87,14 @@ export default function AdminPayments() {
   };
 
   const handleApprovePayment = (paymentId: string) => {
-    console.log('Approving payment:', paymentId);
     // API call to approve payment release
   };
 
   const handleRejectPayment = (paymentId: string) => {
-    console.log('Rejecting payment:', paymentId);
     // API call to reject payment release
   };
 
   const handleBulkApprove = () => {
-    console.log('Bulk approving payments:', selectedPayments);
     setSelectedPayments([]);
   };
 

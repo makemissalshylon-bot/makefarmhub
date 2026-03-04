@@ -33,7 +33,6 @@ class CrashProtectionService {
     this.loadErrorLogs();
     this.isInitialized = true;
 
-    console.log('🛡️ Crash Protection Service initialized');
   }
 
   /**
@@ -86,7 +85,6 @@ class CrashProtectionService {
     });
 
     window.addEventListener('online', () => {
-      console.log('📡 Network restored');
       this.showNotification('Connection restored!', 'success');
     });
   }
@@ -159,7 +157,6 @@ class CrashProtectionService {
   private recoverFromNetworkError(): boolean {
     // Check if we're online
     if (navigator.onLine) {
-      console.log('Network is available, retrying...');
       return true;
     }
     return false;

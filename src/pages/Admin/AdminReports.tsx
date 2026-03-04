@@ -110,7 +110,6 @@ export default function AdminReports() {
 
   const handleGenerateReport = () => {
     setIsGenerating(true);
-    console.log('Generating report:', { type: selectedReport, dateRange });
     
     // Simulate report generation
     setTimeout(() => {
@@ -120,7 +119,6 @@ export default function AdminReports() {
   };
 
   const handleDownloadReport = (reportId: string) => {
-    console.log('Downloading report:', reportId);
     // In real app, this would trigger file download
   };
 

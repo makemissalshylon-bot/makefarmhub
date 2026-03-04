@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { farmerStats, mockListings, mockOrders } from '../../data/mockData';
+import { useAppData } from '../../context/AppDataContext';
 import CommissionBanner from './CommissionBanner';
 import WeatherWidget from '../../components/Weather/WeatherWidget';
 import {
@@ -19,13 +19,14 @@ import {
 
 export default function FarmerDashboard() {
   const { user } = useAuth();
-  const myListings = mockListings.filter(l => l.sellerId === (user?.id || 'farmer-1'));
-  const myOrders = mockOrders.filter(o => o.sellerId === (user?.id || 'farmer-1'));
+  const { orders, listings, walletBalance } = useAppData();
+  const myListings = listings.filter(l => l.sellerId === user?.id);
+  const myOrders = orders.filter(o => o.sellerId === user?.id);
   
-  // Calculate stats from data
-  const totalSales = myOrders.filter(o => o.status === 'completed').reduce((sum, o) => sum + o.totalPrice, 0);
-  const totalViews = myListings.reduce((sum, l) => sum + l.views, 0);
-  const activeListings = myListings.filter(l => l.status === 'active').length;
+  // Calculate stats from real data
+  const totalSales = myOrders.filter(o => o.status === 'completed' || o.status === 'delivered').reduce((sum, o) => sum + o.totalPrice, 0);
+  const totalViews = myListings.reduce((sum, l) => sum + (l.views || 0), 0);
+  const activeListings = myListings.filter(l => l.status === 'active' || !l.status).length;
   const pendingOrders = myOrders.filter(o => o.status === 'pending').length;
 
   const stats = [
@@ -188,7 +189,7 @@ export default function FarmerDashboard() {
           <div className="earnings-content">
             <div className="earnings-main">
               <span className="earnings-label">Total Earnings</span>
-              <span className="earnings-value">${farmerStats.totalEarnings}</span>
+              <span className="earnings-value">${totalSales.toLocaleString()}</span>
             </div>
             <div className="earnings-chart">
               <div className="chart-bar" style={{ height: '60%' }}><span>Sep</span></div>

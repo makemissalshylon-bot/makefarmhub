@@ -54,7 +54,6 @@ export async function testSupabaseConnection(): Promise<boolean> {
       console.warn('Supabase connection test failed:', error.message);
       _supabaseReady = false;
     } else {
-      console.log('✅ Supabase connected successfully');
       _supabaseReady = true;
     }
   } catch (err) {

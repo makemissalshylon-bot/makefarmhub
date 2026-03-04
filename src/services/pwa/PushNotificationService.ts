@@ -36,7 +36,6 @@ class PushNotificationService {
     this.subscription = await registration.pushManager.getSubscription();
     
     if (this.subscription) {
-      console.log('[Push] Existing subscription found');
     }
   }
 
@@ -45,12 +44,10 @@ class PushNotificationService {
    */
   async requestPermission(): Promise<NotificationPermission> {
     if (!('Notification' in window)) {
-      console.log('[Push] Notifications not supported');
       return 'denied';
     }
 
     const permission = await Notification.requestPermission();
-    console.log('[Push] Permission:', permission);
     return permission;
   }
 
@@ -67,7 +64,6 @@ class PushNotificationService {
       // Request permission first
       const permission = await this.requestPermission();
       if (permission !== 'granted') {
-        console.log('[Push] Permission denied');
         return null;
       }
 
@@ -80,7 +76,6 @@ class PushNotificationService {
         applicationServerKey: applicationServerKey as BufferSource,
       });
 
-      console.log('[Push] Subscribed:', this.subscription);
 
       // Send subscription to server
       await this.sendSubscriptionToServer(this.subscription);
@@ -97,7 +92,6 @@ class PushNotificationService {
    */
   async unsubscribe(): Promise<boolean> {
     if (!this.subscription) {
-      console.log('[Push] No active subscription');
       return false;
     }
 
@@ -108,7 +102,6 @@ class PushNotificationService {
       await this.removeSubscriptionFromServer(this.subscription);
       
       this.subscription = null;
-      console.log('[Push] Unsubscribed');
       return true;
     } catch (error) {
       console.error('[Push] Unsubscribe error:', error);
@@ -185,7 +178,6 @@ class PushNotificationService {
         throw new Error('Failed to send subscription to server');
       }
 
-      console.log('[Push] Subscription sent to server');
     } catch (error) {
       console.error('[Push] Send subscription error:', error);
       // For demo, just log - in production, handle this properly
@@ -208,7 +200,6 @@ class PushNotificationService {
         throw new Error('Failed to remove subscription from server');
       }
 
-      console.log('[Push] Subscription removed from server');
     } catch (error) {
       console.error('[Push] Remove subscription error:', error);
       // For demo, just log - in production, handle this properly

@@ -143,7 +143,6 @@ class NotificationService {
    */
   async sendEmail(notification: EmailNotification): Promise<void> {
     // In production, this would call your backend API
-    console.log('Email notification:', notification);
     
     // Example API call:
     // await fetch('/api/notifications/email', {
@@ -158,7 +157,6 @@ class NotificationService {
    */
   async sendSMS(notification: SMSNotification): Promise<void> {
     // In production, this would call your backend API
-    console.log('SMS notification:', notification);
     
     // Example API call:
     // await fetch('/api/notifications/sms', {
@@ -249,7 +247,6 @@ class NotificationService {
    */
   private async sendSubscriptionToBackend(subscription: PushSubscription): Promise<void> {
     // In production, send to your backend
-    console.log('Push subscription:', subscription);
     
     // Example:
     // await fetch('/api/notifications/subscribe', {
@@ -264,7 +261,6 @@ class NotificationService {
    */
   private async removeSubscriptionFromBackend(subscription: PushSubscription): Promise<void> {
     // In production, notify your backend
-    console.log('Removing push subscription:', subscription);
   }
 
   /**
