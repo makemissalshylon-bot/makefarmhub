@@ -1,6 +1,9 @@
 import { useState, useRef } from 'react';
 import { Upload, Download, FileSpreadsheet, Check, X, AlertCircle, HelpCircle } from 'lucide-react';
 import { useToast } from '../UI/Toast';
+import { useAuth } from '../../context/AuthContext';
+import { isSupabaseReady } from '../../lib/supabase';
+import { listingService } from '../../services/supabase/listingService';
 import './BulkUpload.css';
 
 interface ParsedListing {
@@ -24,6 +27,7 @@ export default function BulkUpload() {
   const [showHelp, setShowHelp] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   const downloadTemplate = () => {
     const headers = ['Title', 'Description', 'Category', 'Subcategory', 'Price', 'Unit', 'Quantity', 'Location', 'Organic'];
@@ -119,14 +123,31 @@ export default function BulkUpload() {
     }
 
     setIsProcessing(true);
-
-    // Simulate upload
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    showToast('success', `Successfully uploaded ${validListings.length} listings!`);
-    setFile(null);
-    setParsedData([]);
-    setIsProcessing(false);
+    try {
+      if (isSupabaseReady() && user) {
+        for (const listing of validListings) {
+          await listingService.create({
+            seller_id: user.id,
+            title: listing.title,
+            description: listing.description,
+            category: listing.category,
+            subcategory: listing.subcategory,
+            price: listing.price,
+            unit: listing.unit,
+            quantity: listing.quantity,
+            location: listing.location,
+            organic: listing.organic,
+          });
+        }
+      }
+      showToast('success', `Successfully uploaded ${validListings.length} listings!`);
+      setFile(null);
+      setParsedData([]);
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to upload listings');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const removeItem = (index: number) => {

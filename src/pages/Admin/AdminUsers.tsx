@@ -18,56 +18,7 @@ import {
 } from 'lucide-react';
 import { isSupabaseReady } from '../../lib/supabase';
 import { adminService } from '../../services/supabase/adminService';
-import { mockUsers } from '../../data/mockData';
-
-// Extended mock users for admin view
-const fallbackUsers = [
-  ...mockUsers,
-  {
-    id: 'farmer-2',
-    name: 'Grace Mutasa',
-    email: 'grace@farm.zw',
-    phone: '+263 77 234 5678',
-    role: 'farmer' as const,
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-    location: 'Chitungwiza, Zimbabwe',
-    verified: true,
-    createdAt: '2024-02-10',
-  },
-  {
-    id: 'buyer-2',
-    name: 'Michael Tawanda',
-    email: 'michael@buyer.zw',
-    phone: '+263 78 345 6789',
-    role: 'buyer' as const,
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face',
-    location: 'Harare, Zimbabwe',
-    verified: true,
-    createdAt: '2024-03-05',
-  },
-  {
-    id: 'farmer-3',
-    name: 'Tendai Zimuto',
-    email: 'tendai@farm.zw',
-    phone: '+263 71 456 7890',
-    role: 'farmer' as const,
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop&crop=face',
-    location: 'Masvingo, Zimbabwe',
-    verified: false,
-    createdAt: '2024-04-15',
-  },
-  {
-    id: 'transporter-2',
-    name: 'David Sibanda',
-    email: 'david@transport.zw',
-    phone: '+263 77 567 8901',
-    role: 'transporter' as const,
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-    location: 'Bulawayo, Zimbabwe',
-    verified: true,
-    createdAt: '2024-05-20',
-  },
-];
+import type { User } from '../../types';
 
 export default function AdminUsers() {
   const navigate = useNavigate();
@@ -78,8 +29,8 @@ export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
-  const [userToVerify, setUserToVerify] = useState<typeof fallbackUsers[0] | null>(null);
-  const [users, setUsers] = useState(fallbackUsers);
+  const [userToVerify, setUserToVerify] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
     if (isSupabaseReady()) {
@@ -142,7 +93,7 @@ export default function AdminUsers() {
     navigate('/profile', { state: { viewUserId: userId } });
   };
 
-  const handleVerifyUser = (user: typeof fallbackUsers[0]) => {
+  const handleVerifyUser = (user: User) => {
     setUserToVerify(user);
     setShowVerifyModal(true);
   };

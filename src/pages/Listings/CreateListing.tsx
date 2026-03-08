@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/UI/Toast';
+import { useAuth } from '../../context/AuthContext';
+import { useAppData } from '../../context/AppDataContext';
+import { isSupabaseReady } from '../../lib/supabase';
+import { listingService } from '../../services/supabase/listingService';
 import ImageUpload, { type UploadedImage } from '../../components/Upload/ImageUpload';
 import Breadcrumbs from '../../components/UI/Breadcrumbs';
 import LoadingState from '../../components/UI/LoadingState';
@@ -99,6 +103,8 @@ const paymentOptionsList = [
 export default function CreateListing() {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { user } = useAuth();
+  const { addListing } = useAppData();
   const [category, setCategory] = useState<'crops' | 'livestock' | ''>('');
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   
@@ -235,12 +241,75 @@ export default function CreateListing() {
     }
 
     setIsSubmitting(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    setIsSubmitting(false);
-    showToast('success', 'Listing created successfully!');
-    navigate('/my-listings');
+    try {
+      const price = category === 'crops'
+        ? Number(cropForm.pricePerKg) || 0
+        : Number(livestockForm.pricePerAnimal) || 0;
+      const quantity = category === 'crops'
+        ? Number(cropForm.availableQuantity) || 0
+        : Number(livestockForm.numberOfAnimals) || 0;
+      const unit = category === 'crops'
+        ? (cropForm.quantityUnit || 'kg')
+        : 'each';
+      const subcategory = category === 'crops'
+        ? (cropForm.cropType || '')
+        : (livestockForm.animalType || '');
+
+      if (isSupabaseReady() && user) {
+        await listingService.create({
+          seller_id: user.id,
+          title: form.title || '',
+          description: form.farmDescription || '',
+          category,
+          subcategory,
+          price,
+          unit,
+          quantity,
+          location: form.location || '',
+          images: form.images || [],
+          ready_to_sell: form.readyToSell || false,
+          delivery_terms: form.deliveryTerms || '',
+          delivery_options: form.deliveryOptions || [],
+          payment_options: form.paymentOptions || [],
+          organic: false,
+          tags: [],
+        });
+      } else {
+        addListing({
+          sellerId: user?.id || '',
+          sellerName: user?.name || '',
+          sellerAvatar: user?.avatar || '',
+          sellerRating: 0,
+          sellerVerified: user?.verified || false,
+          sellerLocation: user?.location || '',
+          title: form.title || '',
+          description: form.farmDescription || '',
+          category,
+          subcategory,
+          price,
+          unit,
+          quantity,
+          location: form.location || '',
+          images: form.images || [],
+          status: 'active',
+          featured: false,
+          views: 0,
+          organic: false,
+          tags: [],
+          readyToSell: form.readyToSell || false,
+          deliveryTerms: form.deliveryTerms || '',
+          deliveryOptions: form.deliveryOptions || [],
+          paymentOptions: form.paymentOptions || [],
+          createdAt: new Date().toISOString(),
+        } as any);
+      }
+      showToast('success', 'Listing created successfully!');
+      navigate('/my-listings');
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to create listing. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!category) {

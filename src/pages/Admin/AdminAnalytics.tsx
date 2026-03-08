@@ -22,17 +22,53 @@ import {
 } from 'lucide-react';
 import { isSupabaseReady } from '../../lib/supabase';
 import { adminService } from '../../services/supabase/adminService';
-import {
-  mockAdminStats,
-  revenueByMonth,
-  userGrowth,
-  topSellingProducts,
-} from '../../data/mockData';
+import type { AdminStats } from '../../types';
 import '../../styles/admin-analytics.css';
+
+const defaultStats: AdminStats = {
+  totalUsers: 0,
+  totalFarmers: 0,
+  totalBuyers: 0,
+  totalTransporters: 0,
+  totalListings: 0,
+  activeListings: 0,
+  totalOrders: 0,
+  completedOrders: 0,
+  totalRevenue: 0,
+  totalCommission: 0,
+  pendingDisputes: 0,
+  escrowBalance: 0,
+};
+
+const revenueByMonth = [
+  { month: 'Jun', revenue: 32000, commission: 1600 },
+  { month: 'Jul', revenue: 45000, commission: 2250 },
+  { month: 'Aug', revenue: 38000, commission: 1900 },
+  { month: 'Sep', revenue: 52000, commission: 2600 },
+  { month: 'Oct', revenue: 48000, commission: 2400 },
+  { month: 'Nov', revenue: 65000, commission: 3250 },
+];
+
+const userGrowth = [
+  { month: 'Jun', farmers: 380, buyers: 420, transporters: 78 },
+  { month: 'Jul', farmers: 412, buyers: 465, transporters: 85 },
+  { month: 'Aug', farmers: 445, buyers: 510, transporters: 92 },
+  { month: 'Sep', farmers: 478, buyers: 558, transporters: 98 },
+  { month: 'Oct', farmers: 502, buyers: 590, transporters: 105 },
+  { month: 'Nov', farmers: 523, buyers: 612, transporters: 112 },
+];
+
+const topSellingProducts = [
+  { id: 'p1', title: 'Grade A Maize', sales: 45, revenue: 15750, category: 'crops' },
+  { id: 'p2', title: 'Premium Beef Cattle', sales: 12, revenue: 14400, category: 'livestock' },
+  { id: 'p3', title: 'Fresh Organic Tomatoes', sales: 89, revenue: 5562, category: 'crops' },
+  { id: 'p4', title: 'Free-Range Chickens', sales: 34, revenue: 5100, category: 'livestock' },
+  { id: 'p5', title: 'Soybean Seeds', sales: 28, revenue: 4200, category: 'crops' },
+];
 
 export default function AdminAnalytics() {
   const [timeRange, setTimeRange] = useState('30d');
-  const [stats, setStats] = useState(mockAdminStats);
+  const [stats, setStats] = useState<AdminStats>(defaultStats);
 
   useEffect(() => {
     if (isSupabaseReady()) {

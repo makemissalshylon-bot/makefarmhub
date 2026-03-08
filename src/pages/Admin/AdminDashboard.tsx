@@ -18,19 +18,45 @@ import {
 import { useAppData } from '../../context/AppDataContext';
 import { isSupabaseReady } from '../../lib/supabase';
 import { adminService } from '../../services/supabase/adminService';
-import {
-  mockAdminStats,
-  mockTransactions,
-  mockDisputes,
-  topSellingProducts,
-  revenueByMonth,
-} from '../../data/mockData';
+import type { AdminStats } from '../../types';
+
+const defaultStats: AdminStats = {
+  totalUsers: 0,
+  totalFarmers: 0,
+  totalBuyers: 0,
+  totalTransporters: 0,
+  totalListings: 0,
+  activeListings: 0,
+  totalOrders: 0,
+  completedOrders: 0,
+  totalRevenue: 0,
+  totalCommission: 0,
+  pendingDisputes: 0,
+  escrowBalance: 0,
+};
+
+const revenueByMonth = [
+  { month: 'Jun', revenue: 32000, commission: 1600 },
+  { month: 'Jul', revenue: 45000, commission: 2250 },
+  { month: 'Aug', revenue: 38000, commission: 1900 },
+  { month: 'Sep', revenue: 52000, commission: 2600 },
+  { month: 'Oct', revenue: 48000, commission: 2400 },
+  { month: 'Nov', revenue: 65000, commission: 3250 },
+];
+
+const topSellingProducts = [
+  { id: 'p1', title: 'Grade A Maize', sales: 45, revenue: 15750, category: 'crops' },
+  { id: 'p2', title: 'Premium Beef Cattle', sales: 12, revenue: 14400, category: 'livestock' },
+  { id: 'p3', title: 'Fresh Organic Tomatoes', sales: 89, revenue: 5562, category: 'crops' },
+  { id: 'p4', title: 'Free-Range Chickens', sales: 34, revenue: 5100, category: 'livestock' },
+  { id: 'p5', title: 'Soybean Seeds', sales: 28, revenue: 4200, category: 'crops' },
+];
 
 export default function AdminDashboard() {
   const { orders, listings, escrowBalance } = useAppData();
-  const [stats, setStats] = useState(mockAdminStats);
-  const [recentTransactions, setRecentTransactions] = useState<any[]>(mockTransactions.slice(0, 5));
-  const [pendingDisputes, setPendingDisputes] = useState<any[]>(mockDisputes.filter(d => d.status !== 'resolved').slice(0, 4));
+  const [stats, setStats] = useState<AdminStats>(defaultStats);
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  const [pendingDisputes, setPendingDisputes] = useState<any[]>([]);
 
   useEffect(() => {
     if (isSupabaseReady()) {
@@ -71,14 +97,14 @@ export default function AdminDashboard() {
         }
       }).catch(() => {});
     } else {
-      setStats({
-        ...mockAdminStats,
-        totalOrders: orders.length || mockAdminStats.totalOrders,
-        completedOrders: orders.filter(o => o.status === 'delivered').length || mockAdminStats.completedOrders,
-        totalListings: listings.length || mockAdminStats.totalListings,
-        activeListings: listings.filter((l: any) => l.status === 'active' || !l.status).length || mockAdminStats.activeListings,
-        escrowBalance: escrowBalance || mockAdminStats.escrowBalance,
-      });
+      setStats(prev => ({
+        ...prev,
+        totalOrders: orders.length,
+        completedOrders: orders.filter(o => o.status === 'delivered').length,
+        totalListings: listings.length,
+        activeListings: listings.filter((l: any) => l.status === 'active' || !l.status).length,
+        escrowBalance: escrowBalance,
+      }));
     }
   }, [orders, listings, escrowBalance]);
 

@@ -1,6 +1,16 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { User, UserRole } from '../types';
-import { mockUsers, adminUser } from '../data/mockData';
+const adminUser = {
+  id: 'admin-1',
+  name: 'Missal S Make',
+  email: 'missal@makefarmhub.com',
+  phone: '+263 77 000 0000',
+  role: 'admin' as const,
+  avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop&crop=face',
+  location: 'Harare, Zimbabwe',
+  verified: true,
+  createdAt: '2024-01-01',
+};
 import { supabase, testSupabaseConnection, isSupabaseReady } from '../lib/supabase';
 import { profileService } from '../services/supabase/profileService';
 
@@ -306,12 +316,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error || 'Verification failed' };
       }
 
-      let foundUser = mockUsers.find(u => u.phone.replace(/\s/g, '').includes(phone.replace(/\s/g, '')));
-
-      if (!foundUser) {
-        const storedUsers = JSON.parse(localStorage.getItem('makefarmhub_registered_users') || '[]');
-        foundUser = storedUsers.find((u: User) => u.phone.replace(/\s/g, '').includes(phone.replace(/\s/g, '')));
-      }
+      const storedUsers = JSON.parse(localStorage.getItem('makefarmhub_registered_users') || '[]');
+      let foundUser = storedUsers.find((u: User) => u.phone.replace(/\s/g, '').includes(phone.replace(/\s/g, '')));
 
       if (!foundUser) {
         foundUser = {
@@ -435,12 +441,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('makefarmhub_user', JSON.stringify(updatedUser));
         profileService.updateProfile(user.id, { role }).catch(err => console.error('Error updating role:', err));
       } else {
-        let roleUser;
-        if (role === 'admin') {
-          roleUser = adminUser;
-        } else {
-          roleUser = mockUsers.find(u => u.role === role) || { ...user, role };
-        }
+        const roleUser = role === 'admin' ? adminUser : { ...user, role };
         setUser(roleUser as User);
         localStorage.setItem('makefarmhub_user', JSON.stringify(roleUser));
       }

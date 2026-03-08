@@ -1,13 +1,4 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import { 
-  mockOrders, 
-  mockConversations, 
-  mockMessages, 
-  mockNotifications,
-  mockListings,
-  mockTransportRequests,
-  mockVehicles,
-} from '../data/mockData';
 import type { Order, Conversation, Message, Notification, Listing, TransportRequest, Vehicle } from '../types';
 import type { Address } from '../components/Address/AddressBook';
 import { supabase, isSupabaseReady } from '../lib/supabase';
@@ -115,16 +106,15 @@ const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
 
-  // Always start with mock data so the app is never blank
-  // Supabase data will replace it once loaded
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  // Start with empty state; Supabase data loads once user is authenticated
+  const [orders, setOrders] = useState<Order[]>([]);
   
   // Messages state
-  const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
-  const [messages, setMessages] = useState<Record<string, Message[]>>(mockMessages);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<Record<string, Message[]>>({});
   
   // Notifications state
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   
   // Wallet state
   const [walletBalance, setWalletBalance] = useState(0);
@@ -132,11 +122,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([]);
   
   // Listings state
-  const [listings, setListings] = useState<Listing[]>(mockListings);
+  const [listings, setListings] = useState<Listing[]>([]);
   
   // Transport state
-  const [transportRequests, setTransportRequests] = useState<TransportRequest[]>(mockTransportRequests);
-  const [vehicles, setVehicles] = useState<Vehicle[]>(mockVehicles);
+  const [transportRequests, setTransportRequests] = useState<TransportRequest[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   
   // Reviews state
   const [reviews, setReviews] = useState<Review[]>([]);

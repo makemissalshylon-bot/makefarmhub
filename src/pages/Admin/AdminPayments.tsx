@@ -12,13 +12,12 @@ import {
 } from 'lucide-react';
 import { isSupabaseReady } from '../../lib/supabase';
 import { adminService } from '../../services/supabase/adminService';
-import { mockEscrowPayments, mockOrders } from '../../data/mockData';
 
 export default function AdminPayments() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
-  const [orders, setOrders] = useState<any[]>(mockOrders);
+  const [orders, setOrders] = useState<any[]>([]);
 
   // Build payments from orders
   const buildPayments = (orderList: any[]) => orderList
@@ -36,15 +35,7 @@ export default function AdminPayments() {
       listingTitle: o.listingTitle || o.listing_title || 'Order',
     }));
 
-  const [paymentsWithApproval, setPaymentsWithApproval] = useState<any[]>(() => {
-    const mockPayments = mockEscrowPayments.map((payment, index) => ({
-      ...payment,
-      requiresApproval: index % 3 === 0,
-      approvalStatus: index % 3 === 0 ? 'pending' : 'approved',
-      listingTitle: mockOrders.find(o => o.id === payment.orderId)?.listingTitle || 'Order',
-    }));
-    return mockPayments;
-  });
+  const [paymentsWithApproval, setPaymentsWithApproval] = useState<any[]>([]);
 
   useEffect(() => {
     if (isSupabaseReady()) {

@@ -30,9 +30,8 @@ export default function ProductRecommendations({
     generateRecommendations();
   }, [type, productId, listings, user]);
 
-  const generateRecommendations = async () => {
+  const generateRecommendations = () => {
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
 
     let recommended: Listing[] = [];
 

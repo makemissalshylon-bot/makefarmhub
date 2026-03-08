@@ -15,13 +15,12 @@ import {
 } from 'lucide-react';
 import { isSupabaseReady } from '../../lib/supabase';
 import { adminService } from '../../services/supabase/adminService';
-import { mockTransactions } from '../../data/mockData';
 
 export default function AdminTransactions() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [transactions, setTransactions] = useState<any[]>(mockTransactions);
+  const [transactions, setTransactions] = useState<any[]>([]);
 
   useEffect(() => {
     if (isSupabaseReady()) {
