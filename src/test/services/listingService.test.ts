@@ -3,10 +3,18 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createMockSupabase } from '../mocks/supabase';
 
-// Mock supabase module
-const mockSupabase = createMockSupabase();
+const mockSupabase = vi.hoisted(() => ({
+  from: vi.fn(),
+  rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+  storage: {
+    from: vi.fn().mockReturnValue({
+      upload: vi.fn().mockResolvedValue({ error: null }),
+      getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: 'https://example.com/img.jpg' } }),
+    }),
+  },
+}));
+
 vi.mock('../../lib/supabase', () => ({
   supabase: mockSupabase,
   isSupabaseReady: () => true,

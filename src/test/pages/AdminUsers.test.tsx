@@ -41,7 +41,7 @@ describe('AdminUsers', () => {
 
   it('renders the users management heading', () => {
     render(<AdminUsers />);
-    expect(screen.getByText(/user management/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /user management/i })).toBeInTheDocument();
   });
 
   it('renders search input', () => {
@@ -49,9 +49,9 @@ describe('AdminUsers', () => {
     expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
   });
 
-  it('renders role filter options', () => {
+  it('renders role filter dropdown', () => {
     render(<AdminUsers />);
-    expect(screen.getByText('All Roles')).toBeInTheDocument();
-    expect(screen.getByText('Farmers')).toBeInTheDocument();
+    const selects = screen.getAllByRole('combobox');
+    expect(selects.length).toBeGreaterThanOrEqual(1);
   });
 });

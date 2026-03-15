@@ -4,6 +4,15 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const mockSupabase = vi.hoisted(() => ({
+  from: vi.fn(),
+}));
+
+vi.mock('../../lib/supabase', () => ({
+  supabase: mockSupabase,
+  isSupabaseReady: () => true,
+}));
+
 // Chainable mock helpers
 function mockChain(resolvedData: any, resolvedError: any = null) {
   const chain: any = {
@@ -14,21 +23,11 @@ function mockChain(resolvedData: any, resolvedError: any = null) {
     order: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({ data: resolvedData, error: resolvedError }),
   };
-  // Make the chain itself thenable
   const p = Promise.resolve({ data: resolvedData, error: resolvedError });
   chain.then = p.then.bind(p);
   chain.catch = p.catch.bind(p);
   return chain;
 }
-
-const mockSupabase = {
-  from: vi.fn(),
-};
-
-vi.mock('../../lib/supabase', () => ({
-  supabase: mockSupabase,
-  isSupabaseReady: () => true,
-}));
 
 import { walletService } from '../../services/supabase/walletService';
 

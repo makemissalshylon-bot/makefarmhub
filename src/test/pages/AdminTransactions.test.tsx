@@ -41,7 +41,7 @@ describe('AdminTransactions', () => {
 
   it('renders the transactions heading', () => {
     render(<AdminTransactions />);
-    expect(screen.getByText(/transactions/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /transactions/i })).toBeInTheDocument();
   });
 
   it('renders the page description', () => {
