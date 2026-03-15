@@ -8,15 +8,17 @@ import { LanguageProvider } from './context/LanguageContext';
 import { AccessibilityProvider } from './components/Accessibility/AccessibilityProvider';
 import Layout from './components/Layout/Layout';
 import DashboardLayout from './components/Dashboard/DashboardLayout';
-import BottomNavigation from './components/Mobile/BottomNavigation';
-import AccessibilityPanel from './components/Accessibility/AccessibilityPanel';
-import InstallPrompt from './components/PWA/InstallPrompt';
-import OfflineIndicator from './components/PWA/OfflineIndicator';
-import LiveChat from './components/Chat/LiveChat';
-import WelcomeTour from './components/Onboarding/WelcomeTour';
 import MetaTags from './components/SEO/MetaTags';
 import StructuredData, { defaultOrganizationData } from './components/SEO/StructuredData';
 import GoogleAnalytics from './components/Analytics/GoogleAnalytics';
+
+// Lazy-load non-critical shell components
+const BottomNavigation = lazy(() => import('./components/Mobile/BottomNavigation'));
+const AccessibilityPanel = lazy(() => import('./components/Accessibility/AccessibilityPanel'));
+const InstallPrompt = lazy(() => import('./components/PWA/InstallPrompt'));
+const OfflineIndicator = lazy(() => import('./components/PWA/OfflineIndicator'));
+const LiveChat = lazy(() => import('./components/Chat/LiveChat'));
+const WelcomeTour = lazy(() => import('./components/Onboarding/WelcomeTour'));
 import './style.css';
 import './styles/animations.css';
 
@@ -206,13 +208,17 @@ function App() {
                   <MetaTags />
                   <StructuredData type="organization" data={defaultOrganizationData} />
                   <GoogleAnalytics />
-                  <OfflineIndicator />
+                  <Suspense fallback={null}>
+                    <OfflineIndicator />
+                  </Suspense>
                   <AppRoutes />
-                  <BottomNavigation />
-                  <AccessibilityPanel />
-                  <LiveChat />
-                  <WelcomeTour />
-                  <InstallPrompt />
+                  <Suspense fallback={null}>
+                    <BottomNavigation />
+                    <AccessibilityPanel />
+                    <LiveChat />
+                    <WelcomeTour />
+                    <InstallPrompt />
+                  </Suspense>
                 </AppDataProvider>
               </AuthProvider>
             </ToastProvider>

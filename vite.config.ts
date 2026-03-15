@@ -14,11 +14,14 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-router': ['react-router-dom'],
-          'vendor-icons': ['lucide-react'],
-          'vendor-stripe': ['@stripe/stripe-js'],
+        manualChunks(id) {
+          if (id.includes('node_modules/react-dom')) return 'vendor-react';
+          if (id.includes('node_modules/react/')) return 'vendor-react';
+          if (id.includes('node_modules/react-router')) return 'vendor-router';
+          if (id.includes('node_modules/lucide-react')) return 'vendor-icons';
+          if (id.includes('node_modules/@stripe')) return 'vendor-stripe';
+          if (id.includes('node_modules/@supabase')) return 'vendor-supabase';
+          if (id.includes('/services/supabase/') || id.includes('/services/realtime') || id.includes('/services/payment') || id.includes('/services/notification') || id.includes('/services/moderation')) return 'app-services';
         },
       },
     },

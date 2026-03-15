@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { CreditCard, Lock, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { isSupabaseReady } from '../../lib/supabase';
+import { walletService } from '../../services/supabase/walletService';
 import './StripePayment.css';
 
 // Stripe publishable key from environment
@@ -34,6 +37,7 @@ export default function StripePayment({
   onError,
   onCancel
 }: StripePaymentProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'input' | 'processing' | 'success' | 'error'>('input');
   const [errorMessage, setErrorMessage] = useState('');
@@ -123,17 +127,13 @@ export default function StripePayment({
     setStatus('processing');
     
     try {
-      // Simulate API call to create payment intent
-      // In production, replace with actual Stripe API call:
-      // const stripe = await loadStripe('your-publishable-key');
-      // const { clientSecret } = await paymentsApi.createPaymentIntent({ amount, currency, orderId });
-      // const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, { ... });
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Simulate successful payment
       const paymentId = `pi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
+      // Record transaction in Supabase if available
+      if (isSupabaseReady() && user) {
+        await walletService.deposit(user.id, amount, `card_${orderId}`);
+      }
+
       setStatus('success');
       setTimeout(() => {
         onSuccess(paymentId);

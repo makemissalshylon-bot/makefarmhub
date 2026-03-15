@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { X, CreditCard, CheckCircle, AlertCircle, Smartphone, Copy, Phone } from 'lucide-react';
 import { useToast } from '../UI/Toast';
+import { useAuth } from '../../context/AuthContext';
+import { isSupabaseReady } from '../../lib/supabase';
+import { walletService } from '../../services/supabase/walletService';
 import '../../styles/payment-modal.css';
 
 interface PaymentModalProps {
@@ -22,6 +25,7 @@ type PaymentStep = 'select' | 'instructions' | 'confirm' | 'processing' | 'succe
 
 export default function PaymentModal({ isOpen, onClose, amount, orderId, onPaymentComplete }: PaymentModalProps) {
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [step, setStep] = useState<PaymentStep>('select');
   const [selectedMethod, setSelectedMethod] = useState<'ecocash' | 'onemoney' | 'innbucks'>('ecocash');
   const [transactionRef, setTransactionRef] = useState('');
@@ -94,7 +98,7 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
     showToast('success', 'Code copied to clipboard!');
   };
 
-  const handleConfirmPayment = () => {
+  const handleConfirmPayment = async () => {
     if (!transactionRef.trim()) {
       showToast('error', 'Please enter the transaction reference number');
       return;
@@ -102,8 +106,12 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
 
     setStep('processing');
 
-    // Simulate payment verification
-    setTimeout(() => {
+    try {
+      // Record transaction in Supabase if available
+      if (isSupabaseReady() && user) {
+        await walletService.deposit(user.id, amount, `${selectedMethod}_${transactionRef}`);
+      }
+
       setStep('success');
       const paymentDetails: PaymentDetails = {
         method: selectedMethod,
@@ -117,7 +125,10 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
         onClose();
         resetModal();
       }, 2000);
-    }, 2000);
+    } catch {
+      setStep('select');
+      showToast('error', 'Payment verification failed. Please try again.');
+    }
   };
 
   const resetModal = () => {

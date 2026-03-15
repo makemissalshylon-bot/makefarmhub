@@ -2,15 +2,17 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import { crashProtectionService } from './services/crashProtectionService'
-import { dataProtectionService } from './services/dataProtectionService'
 import './style.css'
 
-// Initialize crash protection and auto-backup
-crashProtectionService.init();
-
-// Create initial backup on app start
-dataProtectionService.createBackup('auto', 'App startup backup');
+// Defer heavy service initialization to after first render
+requestIdleCallback(() => {
+  import('./services/crashProtectionService').then(({ crashProtectionService }) => {
+    crashProtectionService.init();
+  });
+  import('./services/dataProtectionService').then(({ dataProtectionService }) => {
+    dataProtectionService.createBackup('auto', 'App startup backup');
+  });
+}, { timeout: 3000 });
 
 // Register PWA service worker
 if ('serviceWorker' in navigator) {
