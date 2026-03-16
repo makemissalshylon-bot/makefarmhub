@@ -2,59 +2,64 @@ import { supabase } from '../../lib/supabase';
 
 export const adminService = {
   async getStats() {
-    const [
-      { count: totalUsers },
-      { count: totalListings },
-      { count: activeListings },
-      { count: totalOrders },
-      { count: completedOrders },
-      { count: pendingDisputes },
-    ] = await Promise.all([
-      supabase.from('profiles').select('*', { count: 'exact', head: true }),
-      supabase.from('listings').select('*', { count: 'exact', head: true }),
-      supabase.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-      supabase.from('orders').select('*', { count: 'exact', head: true }),
-      supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
-      supabase.from('disputes').select('*', { count: 'exact', head: true }).in('status', ['open', 'investigating']),
-    ]);
-
-    const { data: roleCounts } = await supabase
-      .from('profiles')
-      .select('role') as { data: { role: string }[] | null };
-
-    const farmers = roleCounts?.filter(u => u.role === 'farmer').length || 0;
-    const buyers = roleCounts?.filter(u => u.role === 'buyer').length || 0;
-    const transporters = roleCounts?.filter(u => u.role === 'transporter').length || 0;
-
-    // Get revenue from completed orders
-    const { data: revenueData } = await supabase
-      .from('orders')
-      .select('total_price')
-      .eq('status', 'completed') as { data: { total_price: number }[] | null };
-    const totalRevenue = revenueData?.reduce((sum, o) => sum + (o.total_price || 0), 0) || 0;
-
-    // Get commission from wallet transactions
-    const { data: commissionData } = await supabase
-      .from('wallet_transactions')
-      .select('fee')
-      .eq('type', 'payment')
-      .eq('status', 'completed') as { data: { fee: number }[] | null };
-    const totalCommission = commissionData?.reduce((sum, t) => sum + (t.fee || 0), 0) || 0;
+    // Use RPC function for optimized stats query
+    const { data, error } = await supabase.rpc('get_admin_stats');
+    
+    if (error) {
+      console.error('Failed to fetch admin stats:', error);
+      // Fallback to empty stats
+      return {
+        totalUsers: 0,
+        totalFarmers: 0,
+        totalBuyers: 0,
+        totalTransporters: 0,
+        verifiedUsers: 0,
+        totalListings: 0,
+        activeListings: 0,
+        totalOrders: 0,
+        pendingOrders: 0,
+        completedOrders: 0,
+        totalRevenue: 0,
+        escrowBalance: 0,
+        totalDisputes: 0,
+        openDisputes: 0,
+      };
+    }
 
     return {
-      totalUsers: totalUsers || 0,
-      totalFarmers: farmers,
-      totalBuyers: buyers,
-      totalTransporters: transporters,
-      totalListings: totalListings || 0,
-      activeListings: activeListings || 0,
-      totalOrders: totalOrders || 0,
-      completedOrders: completedOrders || 0,
-      totalRevenue,
-      totalCommission,
-      pendingDisputes: pendingDisputes || 0,
-      escrowBalance: 0,
+      totalUsers: data.total_users || 0,
+      totalFarmers: data.total_farmers || 0,
+      totalBuyers: data.total_buyers || 0,
+      totalTransporters: data.total_transporters || 0,
+      verifiedUsers: data.verified_users || 0,
+      totalListings: data.total_listings || 0,
+      activeListings: data.active_listings || 0,
+      totalOrders: data.total_orders || 0,
+      pendingOrders: data.pending_orders || 0,
+      completedOrders: data.completed_orders || 0,
+      totalRevenue: data.total_revenue || 0,
+      escrowBalance: data.escrow_balance || 0,
+      totalDisputes: data.total_disputes || 0,
+      openDisputes: data.open_disputes || 0,
     };
+  },
+
+  async getRevenueAnalytics(days: number = 30) {
+    const { data, error } = await supabase.rpc('get_revenue_analytics', { days });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getTopProducts(limit: number = 10) {
+    const { data, error } = await supabase.rpc('get_top_products', { limit_count: limit });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getUserGrowth(days: number = 30) {
+    const { data, error } = await supabase.rpc('get_user_growth', { days });
+    if (error) throw error;
+    return data || [];
   },
 
   async getAllUsers() {

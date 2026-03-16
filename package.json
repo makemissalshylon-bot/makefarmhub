@@ -30,14 +30,19 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.0",
+    "@sentry/react": "^8.0.0",
     "@stripe/stripe-js": "^2.2.0",
     "@supabase/supabase-js": "^2.95.3",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
+    "africastalking": "^0.6.1",
     "lucide-react": "^0.555.0",
+    "qrcode": "^1.5.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.6",
+    "speakeasy": "^2.0.0",
     "stripe": "^14.5.0"
   }
 }

@@ -2,7 +2,14 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { errorTracking } from './services/errorTracking'
+import { analytics } from './services/analytics'
 import './style.css'
+
+// Initialize monitoring and analytics
+errorTracking.init();
+analytics.init();
+analytics.trackWebVitals();
 
 // Defer heavy service initialization to after first render
 requestIdleCallback(() => {
