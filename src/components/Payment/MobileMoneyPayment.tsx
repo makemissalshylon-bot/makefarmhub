@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Smartphone, CheckCircle, AlertCircle, Loader, Phone } from 'lucide-react';
+import { mobileMoneyService, type MobileMoneyProvider } from '../../services/mobileMoneyService';
+import { useAuth } from '../../context/AuthContext';
 import './MobileMoneyPayment.css';
 
 interface MobileMoneyPaymentProps {
@@ -73,44 +75,39 @@ export default function MobileMoneyPayment({
     setErrorMessage('');
   };
 
+  const { user } = useAuth();
+
   const handleConfirm = async () => {
+    if (!user || !provider) return;
+    
     setLoading(true);
     setStatus('processing');
     setErrorMessage('');
 
-    const API_URL = import.meta.env.VITE_API_URL || '';
-
     try {
-      // Call backend mobile money API
-      const response = await fetch(`${API_URL}/api/mobile-money-payment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount,
-          currency,
-          phoneNumber: phoneNumber.replace(/\s/g, ''),
-          provider,
-          orderId,
-          description: `MakeFarmHub Order #${orderId}`,
-        }),
+      // Initiate payment
+      const { transactionRef } = await mobileMoneyService.initiatePayment({
+        provider,
+        phoneNumber: mobileMoneyService.formatPhoneNumber(phoneNumber),
+        amount,
+        userId: user.id,
+        orderId,
       });
 
-      const data = await response.json();
+      setTransactionRef(transactionRef);
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Payment request failed');
-      }
+      // Poll for payment status
+      const status = await mobileMoneyService.pollPaymentStatus(transactionRef, provider);
 
-      setTransactionRef(data.transactionRef);
-
-      // Poll for payment status if we have a transaction ref
-      if (data.pollUrl) {
-        await pollPaymentStatus(data.pollUrl, data.transactionRef);
-      } else {
-        // No poll URL — treat as pending, wait for user to confirm on phone
-        await new Promise(resolve => setTimeout(resolve, 5000));
+      if (status.status === 'success') {
         setStatus('success');
-        setTimeout(() => onSuccess(data.transactionRef), 2000);
+        setTimeout(() => onSuccess(transactionRef), 2000);
+      } else if (status.status === 'failed') {
+        throw new Error(status.message || 'Payment failed');
+      } else {
+        // Timeout - assume success for now
+        setStatus('success');
+        setTimeout(() => onSuccess(transactionRef), 2000);
       }
 
     } catch (error: any) {
@@ -120,43 +117,6 @@ export default function MobileMoneyPayment({
     } finally {
       setLoading(false);
     }
-  };
-
-  const pollPaymentStatus = async (pollUrl: string, txRef: string) => {
-    const API_URL = import.meta.env.VITE_API_URL || '';
-    const maxAttempts = 20;
-    const intervalMs = 3000;
-
-    for (let i = 0; i < maxAttempts; i++) {
-      await new Promise(resolve => setTimeout(resolve, intervalMs));
-
-      try {
-        const res = await fetch(`${API_URL}/api/mobile-money-verify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pollUrl, transactionRef: txRef }),
-        });
-        const data = await res.json();
-
-        if (data.status === 'paid' || data.status === 'delivered') {
-          setStatus('success');
-          setTimeout(() => onSuccess(txRef), 2000);
-          return;
-        } else if (data.status === 'cancelled' || data.status === 'failed') {
-          throw new Error('Payment was declined or cancelled');
-        }
-        // status is still 'pending' — continue polling
-      } catch (err: any) {
-        if (err.message.includes('declined') || err.message.includes('cancelled')) {
-          throw err;
-        }
-        // Network error — keep trying
-      }
-    }
-
-    // Timed out waiting
-    setStatus('success');
-    setTimeout(() => onSuccess(txRef), 2000);
   };
 
   const handleBack = () => {
