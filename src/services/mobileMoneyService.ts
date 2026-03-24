@@ -154,7 +154,7 @@ export const mobileMoneyService = {
 
     // Zimbabwe phone number patterns
     const patterns: Record<MobileMoneyProvider, RegExp> = {
-      ecocash: /^(\+?263|0)?77\d{7}$/,        // Econet
+      ecocash: /^(\+?263|0)?7[78]\d{7}$/,      // Econet 077/078
       onemoney: /^(\+?263|0)?71\d{7}$/,       // NetOne
       innbucks: /^(\+?263|0)?(77|71|73)\d{7}$/, // Multi-network
       telecash: /^(\+?263|0)?73\d{7}$/,       // Telecel

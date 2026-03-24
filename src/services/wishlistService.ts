@@ -3,14 +3,14 @@
  * Manage user wishlists and saved items
  */
 
-import { supabase } from './supabase/client';
+import { supabase } from '../lib/supabase';
 
 export interface WishlistItem {
   id: string;
-  userId: string;
-  listingId: string;
-  addedAt: string;
-  listing?: any;
+  user_id: string;
+  listing_id: string;
+  created_at: string;
+  listings?: any;
 }
 
 export const wishlistService = {

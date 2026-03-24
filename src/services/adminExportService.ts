@@ -119,16 +119,25 @@ export const adminExportService = {
   },
 
   // Helper methods
-  async fetchTransactionsForExport(filters?: any) {
-    // This would fetch from Supabase
+  async fetchTransactionsForExport(_filters?: any): Promise<Array<{
+    id: string; created_at: string; user_email?: string; user_id: string;
+    type: string; amount: number; status: string; description: string; reference?: string;
+  }>> {
     return [];
   },
 
-  async fetchUsersForExport(filters?: any) {
+  async fetchUsersForExport(_filters?: any): Promise<Array<{
+    id: string; full_name: string; email: string; phone?: string;
+    role: string; verified: boolean; created_at: string; last_seen?: string;
+  }>> {
     return [];
   },
 
-  async fetchOrdersForExport(filters?: any) {
+  async fetchOrdersForExport(_filters?: any): Promise<Array<{
+    id: string; created_at: string; buyer_name: string; seller_name: string;
+    listing_title: string; quantity: number; total_amount: number;
+    status: string; payment_method: string;
+  }>> {
     return [];
   },
 

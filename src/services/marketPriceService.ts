@@ -90,13 +90,22 @@ export const marketPriceService = {
   },
 
   /**
+   * Search prices by commodity name
+   */
+  async searchPrices(query: string): Promise<PriceData[]> {
+    const all = await this.getCurrentPrices();
+    return all.filter(p => p.commodity.toLowerCase().includes(query.toLowerCase()));
+  },
+
+  /**
    * Get market insights and recommendations
    */
-  getMarketInsights(prices: PriceData[]): string[] {
+  async getMarketInsights(prices?: PriceData[]): Promise<string[]> {
+    const data = prices || await this.getCurrentPrices();
     const insights: string[] = [];
 
-    const rising = prices.filter(p => p.trend === 'up').length;
-    const falling = prices.filter(p => p.trend === 'down').length;
+    const rising = data.filter(p => p.trend === 'up').length;
+    const falling = data.filter(p => p.trend === 'down').length;
 
     if (rising > falling) {
       insights.push('Overall market trend is positive with rising commodity prices');
@@ -106,12 +115,12 @@ export const marketPriceService = {
       insights.push('Market prices are relatively stable');
     }
 
-    const highRise = prices.filter(p => p.changePercent > 5);
+    const highRise = data.filter(p => p.changePercent > 5);
     if (highRise.length > 0) {
       insights.push(`Strong gains in: ${highRise.map(p => p.commodity).join(', ')}`);
     }
 
-    const highFall = prices.filter(p => p.changePercent < -5);
+    const highFall = data.filter(p => p.changePercent < -5);
     if (highFall.length > 0) {
       insights.push(`Significant drops in: ${highFall.map(p => p.commodity).join(', ')}`);
     }

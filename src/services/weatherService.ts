@@ -82,6 +82,11 @@ export const weatherService = {
       recommendations.push('Consider shade cloth for sensitive crops');
     }
 
+    if (weather.temperature < 5) {
+      recommendations.push('Frost warning - Protect sensitive crops');
+      recommendations.push('Cold temperatures may damage young plants');
+    }
+
     if (weather.rainfall > 10) {
       recommendations.push('Heavy rainfall expected - Check drainage systems');
       recommendations.push('Postpone spraying activities');

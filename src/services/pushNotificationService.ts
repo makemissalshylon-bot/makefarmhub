@@ -3,10 +3,6 @@
  * Handles web push notifications for PWA
  */
 
-interface NotificationPermission {
-  granted: boolean;
-  permission: NotificationPermission;
-}
 
 export const pushNotificationService = {
   /**
@@ -56,7 +52,7 @@ export const pushNotificationService = {
 
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as unknown as BufferSource,
         });
       }
 
@@ -115,9 +111,8 @@ export const pushNotificationService = {
         await registration.showNotification(title, {
           icon: '/icon-192x192.png',
           badge: '/icon-96x96.png',
-          vibrate: [200, 100, 200],
           ...options,
-        });
+        } as NotificationOptions);
       } else {
         new Notification(title, options);
       }
@@ -134,11 +129,11 @@ export const pushNotificationService = {
   /**
    * Get current permission status
    */
-  getPermissionStatus(): NotificationPermission {
+  getPermissionStatus(): string {
     if (!('Notification' in window)) {
       return 'denied';
     }
-    return Notification.permission;
+    return Notification.permission as string;
   },
 };
 

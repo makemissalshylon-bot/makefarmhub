@@ -3,12 +3,6 @@
  * Track user behavior and application performance
  */
 
-declare global {
-  interface Window {
-    gtag?: (...args: any[]) => void;
-    dataLayer?: any[];
-  }
-}
 
 const GA_ID = import.meta.env.VITE_GA_ID;
 
@@ -167,12 +161,12 @@ export const analytics = {
   trackWebVitals() {
     if ('web-vital' in window || window.performance) {
       // Track Core Web Vitals
-      if (window.performance.getEntriesByType) {
+      if (typeof window.performance.getEntriesByType === 'function') {
         // Largest Contentful Paint (LCP)
         const lcpObserver = new PerformanceObserver((list) => {
           const entries = list.getEntries();
-          const lastEntry = entries[entries.length - 1];
-          this.trackPerformance('LCP', lastEntry.renderTime || lastEntry.loadTime);
+          const lastEntry = entries[entries.length - 1] as any;
+          this.trackPerformance('LCP', lastEntry.renderTime || lastEntry.loadTime || 0);
         });
         lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
 

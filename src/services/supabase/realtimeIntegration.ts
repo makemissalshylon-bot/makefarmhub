@@ -3,7 +3,7 @@
  * Live updates for messages, orders, notifications
  */
 
-import { supabase } from './client';
+import { supabase } from '../../lib/supabase';
 import { realtimeService } from '../realtimeService';
 
 let messageChannel: any = null;
@@ -27,7 +27,7 @@ export const supabaseRealtime = {
           table: 'messages',
           filter: `receiver_id=eq.${userId}`,
         },
-        (payload) => {
+        (payload: any) => {
           realtimeService.send('messages', 'new_message', payload.new);
         }
       )
@@ -50,7 +50,7 @@ export const supabaseRealtime = {
           table: 'notifications',
           filter: `user_id=eq.${userId}`,
         },
-        (payload) => {
+        (payload: any) => {
           realtimeService.send('notifications', 'new_notification', payload.new);
         }
       )
@@ -73,7 +73,7 @@ export const supabaseRealtime = {
           table: 'orders',
           filter: `buyer_id=eq.${userId}`,
         },
-        (payload) => {
+        (payload: any) => {
           realtimeService.send('orders', 'order_updated', payload.new);
         }
       )
@@ -85,7 +85,7 @@ export const supabaseRealtime = {
           table: 'orders',
           filter: `seller_id=eq.${userId}`,
         },
-        (payload) => {
+        (payload: any) => {
           realtimeService.send('orders', 'order_updated', payload.new);
         }
       )
