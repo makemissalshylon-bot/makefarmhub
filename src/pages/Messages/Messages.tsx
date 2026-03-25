@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useAppData } from '../../context/AppDataContext';
 import { useToast } from '../../components/UI/Toast';
+import { messageService } from '../../services/supabase/messageService';
+import { isSupabaseReady } from '../../lib/supabase';
 import { useRealtimeChat, useRealtimeStatus } from '../../hooks/useRealtime';
 import {
   Search,
@@ -24,7 +25,6 @@ import {
 export default function Messages() {
   const { user } = useAuth();
   const location = useLocation();
-  const { conversations, messages, sendMessage } = useAppData();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,6 +41,78 @@ export default function Messages() {
   const { status: rtStatus, connect: rtConnect } = useRealtimeStatus();
   const { typingUsers, startTyping, stopTyping } = useRealtimeChat(selectedConversation || '');
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Real Supabase state
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Record<string, any[]>>({});
+  const realtimeSubRef = useRef<any>(null);
+
+  const loadConversations = useCallback(async () => {
+    if (!user?.id || !isSupabaseReady()) return;
+    try {
+      const raw = await messageService.getConversations(user.id);
+      // Shape raw Supabase rows into the UI format the template expects
+      const shaped = raw.map((c: any) => ({
+        id: c.id,
+        participants: (c.participant_ids || []).map((pid: string) => ({
+          id: pid,
+          name: pid === user.id ? (user.name || 'You') : (c.participant_names?.[pid] || 'User'),
+          avatar: c.participant_avatars?.[pid] || null,
+          role: 'farmer',
+        })),
+        listingTitle: c.listing_title || null,
+        lastMessage: c.last_message || '',
+        lastMessageTime: c.last_message_time || c.created_at,
+        unreadCount: c.unread_count || 0,
+      }));
+      setConversations(shaped);
+    } catch { /* silent – use empty list */ }
+  }, [user?.id, user?.name]);
+
+  const loadMessages = useCallback(async (convId: string) => {
+    if (!isSupabaseReady()) return;
+    try {
+      const raw = await messageService.getMessages(convId);
+      const shaped = raw.map((m: any) => ({
+        id: m.id,
+        senderId: m.sender_id,
+        content: m.content,
+        timestamp: m.created_at,
+        read: m.read ?? false,
+      }));
+      setMessages(prev => ({ ...prev, [convId]: shaped }));
+      if (user?.id) messageService.markAsRead(convId, user.id).catch(() => {});
+    } catch { /* silent */ }
+  }, [user?.id]);
+
+  useEffect(() => { loadConversations(); }, [loadConversations]);
+
+  // Load messages + subscribe to realtime when conversation changes
+  useEffect(() => {
+    if (!selectedConversation) return;
+    loadMessages(selectedConversation);
+
+    // Unsubscribe from previous
+    if (realtimeSubRef.current) {
+      realtimeSubRef.current.unsubscribe?.();
+    }
+
+    if (isSupabaseReady()) {
+      realtimeSubRef.current = messageService.subscribeToMessages(
+        selectedConversation,
+        (newMsg: any) => {
+          const shaped = { id: newMsg.id, senderId: newMsg.sender_id, content: newMsg.content, timestamp: newMsg.created_at, read: newMsg.read ?? false };
+          setMessages(prev => ({
+            ...prev,
+            [selectedConversation]: [...(prev[selectedConversation] || []), shaped],
+          }));
+          loadConversations();
+        }
+      );
+    }
+
+    return () => { realtimeSubRef.current?.unsubscribe?.(); };
+  }, [selectedConversation, loadMessages, loadConversations]);
 
   // Connect to realtime service on mount
   useEffect(() => {
@@ -62,35 +134,38 @@ export default function Messages() {
   // Handle navigation from listing pages
   useEffect(() => {
     const state = location.state as any;
-    if (state?.sellerId && state?.sellerName) {
-      // Find or create conversation with this seller
-      const existingConv = conversations.find(c => 
-        c.participants.some(p => p.id === state.sellerId)
-      );
-      
-      if (existingConv) {
-        setSelectedConversation(existingConv.id);
-        showToast('info', `Chat opened with ${state.sellerName}`);
-      } else {
-        // Create new conversation context (UI only for demo)
-        showToast('info', `Starting new chat with ${state.sellerName}`);
-        // In a real app, you'd create a new conversation here
-        if (conversations.length > 0) {
-          setSelectedConversation(conversations[0].id);
+    if (!state?.sellerId || !user?.id) return;
+
+    const existing = conversations.find(c => c.participants.some((p: any) => p.id === state.sellerId));
+    if (existing) {
+      setSelectedConversation(existing.id);
+      showToast('info', `Chat opened with ${state.sellerName}`);
+      window.history.replaceState({}, document.title);
+    } else if (isSupabaseReady()) {
+      messageService.createConversation({
+        participant_ids: [user.id, state.sellerId],
+        listing_id: state.listingId,
+        listing_title: state.listingTitle,
+        initial_message: state.initialMessage,
+        sender_id: user.id,
+        sender_name: user.name || 'User',
+      }).then(conv => {
+        if (conv) {
+          loadConversations().then(() => setSelectedConversation((conv as any).id));
+          showToast('info', `Chat started with ${state.sellerName}`);
         }
-      }
-      // Clear the state
+      }).catch(() => showToast('error', 'Could not start conversation'));
       window.history.replaceState({}, document.title);
     }
-  }, [location.state, conversations, showToast]);
+  }, [location.state, conversations, user?.id, user?.name, showToast, loadConversations]);
 
   const currentMessages = selectedConversation ? messages[selectedConversation] || [] : [];
 
   const selectedConv = conversations.find((c) => c.id === selectedConversation);
-  const otherParticipant = selectedConv?.participants.find((p) => p.id !== user?.id);
+  const otherParticipant = selectedConv?.participants.find((p: any) => p.id !== user?.id);
 
   const filteredConversations = conversations.filter((conv) => {
-    const otherPerson = conv.participants.find((p) => p.id !== user?.id);
+    const otherPerson = conv.participants.find((p: any) => p.id !== user?.id);
     return (
       otherPerson?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       conv.listingTitle?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -111,12 +186,29 @@ export default function Messages() {
     }
   }, [conversations, selectedConversation]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!messageInput.trim() || !selectedConversation) return;
-    
-    sendMessage(selectedConversation, messageInput.trim());
+    if (!messageInput.trim() || !selectedConversation || !user?.id) return;
+    const content = messageInput.trim();
     setMessageInput('');
+    try {
+      if (isSupabaseReady()) {
+        await messageService.sendMessage({
+          conversation_id: selectedConversation,
+          sender_id: user.id,
+          sender_name: user.name || 'User',
+          content,
+        });
+        // Realtime subscription will add the new message
+      } else {
+        // Offline fallback
+        const msg = { id: Date.now().toString(), senderId: user.id, content, timestamp: new Date().toISOString(), read: false };
+        setMessages(prev => ({ ...prev, [selectedConversation]: [...(prev[selectedConversation] || []), msg] }));
+      }
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to send message');
+      setMessageInput(content);
+    }
   };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,11 +227,17 @@ export default function Messages() {
     }
   };
 
-  const handleSendImage = () => {
-    if (selectedImage && selectedConversation) {
-      // Send the actual image data URL as message content
-      sendMessage(selectedConversation, selectedImage);
-      showToast('success', 'Image sent successfully');
+  const handleSendImage = async () => {
+    if (selectedImage && selectedConversation && user?.id) {
+      try {
+        if (isSupabaseReady()) {
+          await messageService.sendMessage({ conversation_id: selectedConversation, sender_id: user.id, sender_name: user.name || 'User', content: selectedImage });
+        } else {
+          const msg = { id: Date.now().toString(), senderId: user.id, content: selectedImage, timestamp: new Date().toISOString(), read: false };
+          setMessages(prev => ({ ...prev, [selectedConversation]: [...(prev[selectedConversation] || []), msg] }));
+        }
+        showToast('success', 'Image sent successfully');
+      } catch { showToast('error', 'Failed to send image'); }
       setShowImagePreview(false);
       setSelectedImage(null);
     }
@@ -181,11 +279,18 @@ export default function Messages() {
     );
   };
 
-  const handleShareLocation = () => {
-    if (selectedConversation && currentLocation) {
+  const handleShareLocation = async () => {
+    if (selectedConversation && currentLocation && user?.id) {
       const locationMessage = `📍 Location: ${currentLocation.address}\nCoordinates: ${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)}\nMap: https://www.google.com/maps?q=${currentLocation.lat},${currentLocation.lng}`;
-      sendMessage(selectedConversation, locationMessage);
-      showToast('success', 'Location shared');
+      try {
+        if (isSupabaseReady()) {
+          await messageService.sendMessage({ conversation_id: selectedConversation, sender_id: user.id, sender_name: user.name || 'User', content: locationMessage });
+        } else {
+          const msg = { id: Date.now().toString(), senderId: user.id, content: locationMessage, timestamp: new Date().toISOString(), read: false };
+          setMessages(prev => ({ ...prev, [selectedConversation]: [...(prev[selectedConversation] || []), msg] }));
+        }
+        showToast('success', 'Location shared');
+      } catch { showToast('error', 'Failed to share location'); }
       setShowLocationModal(false);
       setCurrentLocation(null);
     }
@@ -244,7 +349,7 @@ export default function Messages() {
         <div className="conversations-list">
           {filteredConversations.length > 0 ? (
             filteredConversations.map((conv) => {
-              const other = conv.participants.find((p) => p.id !== user?.id);
+              const other = conv.participants.find((p: any) => p.id !== user?.id);
               return (
                 <button
                   key={conv.id}

@@ -219,7 +219,7 @@ export default function CreateListing() {
     }
     
     const form = category === 'crops' ? cropForm : livestockForm;
-    if (!form.location) {
+    if (!form.title?.trim() || !form.location) {
       showToast('error', 'Please fill in all required fields');
       return;
     }
@@ -373,6 +373,29 @@ export default function CreateListing() {
             <>
               <div className="form-section">
                 <h3>Basic Information</h3>
+
+                <div className="form-group">
+                  <label>Listing Title *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Fresh Grade-A Maize — Harare Farm"
+                    value={cropForm.title}
+                    onChange={(e) => setCropForm({ ...cropForm, title: e.target.value })}
+                    maxLength={100}
+                    required
+                  />
+                  <span className="form-hint">A clear title helps buyers find your listing faster</span>
+                </div>
+
+                <div className="form-group">
+                  <label>Description</label>
+                  <textarea
+                    placeholder="Describe your crop: growing method, harvest date, storage conditions, etc."
+                    value={cropForm.farmDescription}
+                    onChange={(e) => setCropForm({ ...cropForm, farmDescription: e.target.value })}
+                    rows={3}
+                  />
+                </div>
                 
                 <div className="form-row">
                   <div className="form-group">
@@ -598,7 +621,30 @@ export default function CreateListing() {
             <>
               <div className="form-section">
                 <h3>Basic Information</h3>
-                
+
+                <div className="form-group">
+                  <label>Listing Title *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., 5 Healthy Boer Goats — Bulawayo"
+                    value={livestockForm.title}
+                    onChange={(e) => setLivestockForm({ ...livestockForm, title: e.target.value })}
+                    maxLength={100}
+                    required
+                  />
+                  <span className="form-hint">A clear title helps buyers find your listing faster</span>
+                </div>
+
+                <div className="form-group">
+                  <label>Description</label>
+                  <textarea
+                    placeholder="Describe your animals: feeding history, purpose (dairy/beef/breeding), any certifications, etc."
+                    value={livestockForm.farmDescription}
+                    onChange={(e) => setLivestockForm({ ...livestockForm, farmDescription: e.target.value })}
+                    rows={3}
+                  />
+                </div>
+
                 <div className="form-row">
                   <div className="form-group">
                     <label>Animal Type *</label>

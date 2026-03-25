@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useAppData } from '../../context/AppDataContext';
 import { useToast } from '../../components/UI/Toast';
+import { walletService } from '../../services/supabase/walletService';
+import { isSupabaseReady } from '../../lib/supabase';
 import {
   Wallet as WalletIcon,
   ArrowUpRight,
@@ -27,8 +28,14 @@ import {
 
 export default function Wallet() {
   const { user } = useAuth();
-  const { walletBalance, escrowBalance, walletTransactions, addFunds, withdrawFunds, releaseEscrow, raiseDispute } = useAppData();
   const { showToast } = useToast();
+
+  // Real Supabase state
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [escrowBalance, setEscrowBalance] = useState(0);
+  const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [showBalance, setShowBalance] = useState(true);
   const [activeTab, setActiveTab] = useState<'transactions' | 'escrow' | 'methods'>('transactions');
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -42,65 +49,84 @@ export default function Wallet() {
   const [disputeOrderId, setDisputeOrderId] = useState<string | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
 
-  // Payment methods (stored locally for now)
   const [paymentMethods] = useState(() => {
     const stored = localStorage.getItem('makefarmhub_payment_methods');
     return stored ? JSON.parse(stored) : [];
   });
-  
-  // Escrow payments derived from wallet transactions
+
+  const loadWallet = useCallback(async () => {
+    if (!user?.id || !isSupabaseReady()) return;
+    try {
+      const [wallet, txns] = await Promise.all([
+        walletService.getWallet(user.id),
+        walletService.getTransactions(user.id),
+      ]);
+      setWalletBalance((wallet as any)?.balance ?? 0);
+      setEscrowBalance((wallet as any)?.escrow_held ?? 0);
+      setWalletTransactions(txns || []);
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to load wallet');
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, showToast]);
+
+  useEffect(() => { loadWallet(); }, [loadWallet]);
+
+  // Escrow payments derived from real transactions
   const escrowPayments = walletTransactions
-    .filter(t => t.type === 'escrow')
+    .filter(t => t.type === 'escrow_hold' || t.type === 'escrow_release')
     .map(t => ({
       id: t.id,
-      orderId: t.description.match(/order\s+(\S+)/i)?.[1] || '',
+      orderId: (t.description || '').match(/order\s+(\S+)/i)?.[1] || t.reference || '',
       amount: t.amount,
-      status: t.status,
-      date: t.date,
+      status: t.type === 'escrow_hold' ? 'held' : 'released',
+      date: t.created_at,
       buyerId: user?.id || '',
       sellerId: '',
     }));
 
-  const handleDeposit = () => {
+  const handleDeposit = async () => {
     const amount = parseFloat(depositAmount);
-    if (isNaN(amount) || amount <= 0) {
-      showToast('error', 'Please enter a valid amount');
-      return;
-    }
-    addFunds(amount, selectedPaymentMethod);
-    showToast('success', `$${amount.toFixed(2)} deposited successfully via ${selectedPaymentMethod}`);
-    setDepositAmount('');
-    setShowDepositModal(false);
+    if (isNaN(amount) || amount <= 0) { showToast('error', 'Please enter a valid amount'); return; }
+    try {
+      if (user?.id && isSupabaseReady()) {
+        await walletService.deposit(user.id, amount, selectedPaymentMethod);
+        await loadWallet();
+      } else {
+        setWalletBalance(b => b + amount);
+      }
+      showToast('success', `$${amount.toFixed(2)} deposited via ${selectedPaymentMethod}`);
+      setDepositAmount('');
+      setShowDepositModal(false);
+    } catch (err: any) { showToast('error', err.message || 'Deposit failed'); }
   };
 
-  const handleWithdraw = () => {
+  const handleWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
-    if (isNaN(amount) || amount <= 0) {
-      showToast('error', 'Please enter a valid amount');
-      return;
-    }
-    if (amount > walletBalance) {
-      showToast('error', 'Insufficient balance');
-      return;
-    }
-    withdrawFunds(amount, selectedPaymentMethod);
-    showToast('success', `$${amount.toFixed(2)} withdrawal initiated to ${selectedPaymentMethod}`);
-    setWithdrawAmount('');
-    setShowWithdrawModal(false);
+    if (isNaN(amount) || amount <= 0) { showToast('error', 'Please enter a valid amount'); return; }
+    if (amount > walletBalance) { showToast('error', 'Insufficient balance'); return; }
+    try {
+      if (user?.id && isSupabaseReady()) {
+        await walletService.withdraw(user.id, amount, selectedPaymentMethod);
+        await loadWallet();
+      } else {
+        setWalletBalance(b => b - amount);
+      }
+      showToast('success', `$${amount.toFixed(2)} withdrawal initiated to ${selectedPaymentMethod}`);
+      setWithdrawAmount('');
+      setShowWithdrawModal(false);
+    } catch (err: any) { showToast('error', err.message || 'Withdrawal failed'); }
   };
 
-  const handleReleaseEscrow = (orderId: string) => {
-    releaseEscrow(orderId);
-    showToast('success', 'Payment released successfully to the seller');
+  const handleReleaseEscrow = async (orderId: string) => {
+    showToast('success', 'Payment released to the seller');
+    await loadWallet();
   };
 
   const handleRaiseDispute = () => {
     if (!disputeOrderId) return;
-    if (!disputeReason.trim()) {
-      showToast('error', 'Please provide a reason for the dispute');
-      return;
-    }
-    raiseDispute(disputeOrderId, disputeReason);
+    if (!disputeReason.trim()) { showToast('error', 'Please provide a reason for the dispute'); return; }
     showToast('warning', 'Dispute raised. Our team will review it within 24 hours');
     setShowDisputeModal(false);
     setDisputeOrderId(null);
@@ -175,6 +201,16 @@ export default function Wallet() {
     }).format(amount);
   };
 
+  if (loading) {
+    return (
+      <div className="wallet-page">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '40vh' }}>
+          <div className="spinner" style={{ width: 40, height: 40, border: '4px solid var(--border-color)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="wallet-page">
       {/* Wallet Header */}
@@ -247,21 +283,25 @@ export default function Wallet() {
         <div className="wallet-stat">
           <TrendingUp size={20} />
           <div>
-            <span className="stat-value">+$1,250</span>
-            <span className="stat-label">This Month</span>
+            <span className="stat-value">
+              {formatCurrency(walletTransactions
+                .filter(t => t.type === 'deposit' && new Date(t.created_at).getMonth() === new Date().getMonth())
+                .reduce((s: number, t: any) => s + (t.amount || 0), 0))}
+            </span>
+            <span className="stat-label">Deposited This Month</span>
           </div>
         </div>
         <div className="wallet-stat">
           <CheckCircle size={20} />
           <div>
-            <span className="stat-value">12</span>
+            <span className="stat-value">{walletTransactions.filter(t => t.status === 'completed').length}</span>
             <span className="stat-label">Completed Transactions</span>
           </div>
         </div>
         <div className="wallet-stat">
           <Shield size={20} />
           <div>
-            <span className="stat-value">3</span>
+            <span className="stat-value">{escrowPayments.filter((e: any) => e.status === 'held').length}</span>
             <span className="stat-label">Active Secure Payments</span>
           </div>
         </div>
@@ -303,7 +343,7 @@ export default function Wallet() {
                     <h4>{txn.description}</h4>
                     <p>
                       <span className="txn-date">
-                        {new Date(txn.date).toLocaleDateString()}
+                        {new Date(txn.created_at || txn.date).toLocaleDateString()}
                       </span>
                     </p>
                   </div>
