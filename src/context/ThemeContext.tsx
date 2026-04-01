@@ -12,6 +12,9 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  // Track whether the user has explicitly chosen a theme
+  const [userChose, setUserChose] = useState(() => !!localStorage.getItem('makefarmhub-theme'));
+
   const [theme, setThemeState] = useState<Theme>(() => {
     // Check localStorage first
     const saved = localStorage.getItem('makefarmhub-theme') as Theme;
@@ -24,27 +27,32 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Apply theme to document
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('makefarmhub-theme', theme);
-  }, [theme]);
+    // Only persist if the user explicitly chose a theme
+    if (userChose) {
+      localStorage.setItem('makefarmhub-theme', theme);
+    }
+  }, [theme, userChose]);
 
-  // Listen for system theme changes
+  // Listen for system theme changes (only when the user hasn't explicitly chosen)
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => {
-      if (!localStorage.getItem('makefarmhub-theme')) {
+      if (!userChose) {
         setThemeState(e.matches ? 'dark' : 'light');
       }
     };
 
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
+  }, [userChose]);
 
   const toggleTheme = () => {
+    setUserChose(true);
     setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
   const setTheme = (newTheme: Theme) => {
+    setUserChose(true);
     setThemeState(newTheme);
   };
 

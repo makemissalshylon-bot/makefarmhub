@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo, type ReactNode } from 'react';
 import type { Order, Conversation, Message, Notification, Listing, TransportRequest, Vehicle } from '../types';
 import type { Address } from '../components/Address/AddressBook';
 import { supabase, isSupabaseReady } from '../lib/supabase';
@@ -105,6 +105,11 @@ const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+
+  // Cache isSupabaseReady in a ref so we don't call the function inside dependency arrays.
+  // The value is set once during the initial data load and never changes after that.
+  const supabaseReady = useRef(isSupabaseReady());
+  useEffect(() => { supabaseReady.current = isSupabaseReady(); }, [user]);
 
   // Start with empty state; Supabase data loads once user is authenticated
   const [orders, setOrders] = useState<Order[]>([]);
@@ -319,7 +324,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
 
     loadData();
-  }, [isSupabaseReady(), user]);
+  }, [user]);
 
   // ============================================
   // REALTIME SUBSCRIPTIONS
@@ -382,7 +387,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       supabase.removeChannel(notifChannel);
       supabase.removeChannel(orderChannel);
     };
-  }, [isSupabaseReady(), user]);
+  }, [user]);
 
   // ============================================
   // ORDER FUNCTIONS
@@ -396,7 +401,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     } as Order;
     setOrders(prev => [newOrder, ...prev]);
     
-    if (isSupabaseReady()) {
+    if (supabaseReady.current) {
       orderService.create({
         listing_id: order.listingId,
         listing_title: order.listingTitle,
@@ -432,16 +437,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
     
     return newOrderId;
-  }, [isSupabaseReady()]);
+  }, []);
 
   const updateOrderStatus = useCallback((orderId: string, status: Order['status']) => {
     setOrders(prev => prev.map(order => 
       order.id === orderId ? { ...order, status } : order
     ));
-    if (isSupabaseReady()) {
+    if (supabaseReady.current) {
       orderService.updateStatus(orderId, status).catch(err => console.error('Error updating order:', err));
     }
-  }, [isSupabaseReady()]);
+  }, []);
 
   // ============================================
   // MESSAGE FUNCTIONS
@@ -470,7 +475,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         : conv
     ));
 
-    if (isSupabaseReady()) {
+    if (supabaseReady.current) {
       messageService.sendMessage({
         conversation_id: conversationId,
         sender_id: senderId,
@@ -478,7 +483,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         content,
       }).catch(err => console.error('Error sending message:', err));
     }
-  }, [isSupabaseReady(), user]);
+  }, [user]);
 
   // ============================================
   // NOTIFICATION FUNCTIONS
@@ -492,7 +497,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
     setNotifications(prev => [newNotification, ...prev]);
 
-    if (isSupabaseReady() && user) {
+    if (supabaseReady.current && user) {
       notificationService.create({
         user_id: user.id,
         title: notification.title,
@@ -501,37 +506,37 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         action_url: notification.actionUrl,
       }).catch(err => console.error('Error creating notification:', err));
     }
-  }, [isSupabaseReady(), user]);
+  }, [user]);
 
   const markNotificationRead = useCallback((id: string) => {
     setNotifications(prev => prev.map(n => 
       n.id === id ? { ...n, read: true } : n
     ));
-    if (isSupabaseReady()) {
+    if (supabaseReady.current) {
       notificationService.markAsRead(id).catch(err => console.error('Error marking notification read:', err));
     }
-  }, [isSupabaseReady()]);
+  }, []);
 
   const markAllNotificationsRead = useCallback(() => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    if (isSupabaseReady() && user) {
+    if (supabaseReady.current && user) {
       notificationService.markAllAsRead(user.id).catch(err => console.error('Error marking all read:', err));
     }
-  }, [isSupabaseReady(), user]);
+  }, [user]);
 
   const deleteNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
-    if (isSupabaseReady()) {
+    if (supabaseReady.current) {
       notificationService.delete(id).catch(err => console.error('Error deleting notification:', err));
     }
-  }, [isSupabaseReady()]);
+  }, []);
 
   const clearAllNotifications = useCallback(() => {
     setNotifications([]);
-    if (isSupabaseReady() && user) {
+    if (supabaseReady.current && user) {
       notificationService.deleteAll(user.id).catch(err => console.error('Error clearing notifications:', err));
     }
-  }, [isSupabaseReady(), user]);
+  }, [user]);
 
   // ============================================
   // WALLET FUNCTIONS
@@ -547,10 +552,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       status: 'completed',
     }, ...prev]);
 
-    if (isSupabaseReady() && user) {
+    if (supabaseReady.current && user) {
       walletService.deposit(user.id, amount, method).catch(err => console.error('Error depositing:', err));
     }
-  }, [isSupabaseReady(), user]);
+  }, [user]);
 
   const withdrawFunds = useCallback((amount: number, method: string) => {
     if (amount <= walletBalance) {
@@ -564,18 +569,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         status: 'completed',
       }, ...prev]);
 
-      if (isSupabaseReady() && user) {
+      if (supabaseReady.current && user) {
         walletService.withdraw(user.id, amount, method).catch(err => console.error('Error withdrawing:', err));
       }
     }
-  }, [walletBalance, isSupabaseReady(), user]);
+  }, [walletBalance, user]);
 
   const releaseEscrow = useCallback((orderId: string) => {
     setOrders(prev => prev.map(order => 
       order.id === orderId ? { ...order, status: 'completed' } : order
     ));
     
-    if (isSupabaseReady()) {
+    if (supabaseReady.current) {
       const order = orders.find(o => o.id === orderId);
       if (order) {
         walletService.releaseEscrow(order.buyerId, order.sellerId, order.escrowAmount || order.totalPrice, orderId)
@@ -591,14 +596,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       message: `Escrow payment for order #${orderId} has been released to the seller`,
       actionUrl: `/orders/${orderId}`,
     });
-  }, [createNotification, isSupabaseReady(), orders]);
+  }, [createNotification, orders]);
 
   const raiseDispute = useCallback((orderId: string, _reason: string) => {
     setOrders(prev => prev.map(order => 
       order.id === orderId ? { ...order, status: 'disputed' } : order
     ));
     
-    if (isSupabaseReady()) {
+    if (supabaseReady.current) {
       orderService.updateStatus(orderId, 'disputed')
         .catch(err => console.error('Error updating order:', err));
     }
@@ -609,7 +614,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       message: `A dispute has been raised for order #${orderId}. Our team will review it.`,
       actionUrl: `/orders/${orderId}`,
     });
-  }, [createNotification, isSupabaseReady()]);
+  }, [createNotification]);
 
   // ============================================
   // LISTING FUNCTIONS
@@ -622,7 +627,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     } as Listing;
     setListings(prev => [newListing, ...prev]);
 
-    if (isSupabaseReady() && user) {
+    if (supabaseReady.current && user) {
       listingService.create({
         seller_id: user.id,
         title: listing.title,
@@ -644,23 +649,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setListings(prev => prev.map(l => l.id === tempId ? { ...l, id: dbListing.id } : l));
       }).catch(err => console.error('Error creating listing:', err));
     }
-  }, [isSupabaseReady(), user]);
+  }, [user]);
 
   const deleteListing = useCallback((id: string) => {
     setListings(prev => prev.filter(l => l.id !== id));
-    if (isSupabaseReady()) {
+    if (supabaseReady.current) {
       listingService.delete(id).catch(err => console.error('Error deleting listing:', err));
     }
-  }, [isSupabaseReady()]);
+  }, []);
 
   const updateListingStatus = useCallback((id: string, status: string) => {
     setListings(prev => prev.map(listing => 
       listing.id === id ? { ...listing, status: status as Listing['status'] } : listing
     ));
-    if (isSupabaseReady()) {
+    if (supabaseReady.current) {
       listingService.update(id, { status }).catch(err => console.error('Error updating listing:', err));
     }
-  }, [isSupabaseReady()]);
+  }, []);
 
   const moderateListing = useCallback((id: string, action: 'approve' | 'reject' | 'flag', reason?: string) => {
     setListings(prev => prev.map(listing => {
@@ -681,11 +686,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
       return listing;
     }));
-    if (isSupabaseReady()) {
+    if (supabaseReady.current) {
       const statusMap = { approve: 'active', reject: 'draft', flag: 'active' };
       listingService.update(id, { status: statusMap[action] }).catch(err => console.error('Error moderating listing:', err));
     }
-  }, [isSupabaseReady()]);
+  }, []);
 
   // ============================================
   // TRANSPORT FUNCTIONS
@@ -698,7 +703,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     } as TransportRequest;
     setTransportRequests(prev => [newRequest, ...prev]);
 
-    if (isSupabaseReady()) {
+    if (supabaseReady.current) {
       transportService.createTransportRequest({
         order_id: request.orderId,
         pickup_location: request.pickupLocation,
@@ -711,16 +716,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setTransportRequests(prev => prev.map(r => r.id === tempId ? { ...r, id: dbReq.id } : r));
       }).catch(err => console.error('Error booking transport:', err));
     }
-  }, [isSupabaseReady()]);
+  }, []);
 
   const updateTransportStatus = useCallback((id: string, status: TransportRequest['status']) => {
     setTransportRequests(prev => prev.map(req => 
       req.id === id ? { ...req, status } : req
     ));
-    if (isSupabaseReady()) {
+    if (supabaseReady.current) {
       transportService.updateTransportRequest(id, { status }).catch(err => console.error('Error updating transport:', err));
     }
-  }, [isSupabaseReady()]);
+  }, []);
 
   // ============================================
   // REVIEW FUNCTIONS
@@ -733,7 +738,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
     setReviews(prev => [newReview, ...prev]);
 
-    if (isSupabaseReady() && user) {
+    if (supabaseReady.current && user) {
       reviewService.create({
         order_id: (review as any).orderId || '',
         reviewer_id: user.id,
@@ -748,7 +753,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         comment: review.comment,
       }).catch(err => console.error('Error creating review:', err));
     }
-  }, [isSupabaseReady(), user]);
+  }, [user]);
   
   // ============================================
   // FAVORITES FUNCTIONS
@@ -851,7 +856,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return stats.commissionPaid;
   }, [sellerStats]);
 
-  const contextValue: AppDataContextType = {
+  const contextValue = useMemo<AppDataContextType>(() => ({
     orders,
     createOrder,
     updateOrderStatus,
@@ -894,7 +899,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     getSellerStats,
     payCommission,
     canSellerList,
-  };
+  }), [
+    orders, createOrder, updateOrderStatus,
+    conversations, messages, sendMessage,
+    notifications, createNotification, markNotificationRead,
+    markAllNotificationsRead, deleteNotification, clearAllNotifications,
+    walletBalance, escrowBalance, walletTransactions,
+    addFunds, withdrawFunds, releaseEscrow, raiseDispute,
+    listings, addListing, deleteListing, updateListingStatus, moderateListing,
+    transportRequests, vehicles, bookTransport, updateTransportStatus,
+    reviews, addReview,
+    favorites, toggleFavorite, isFavorite,
+    addresses, addAddress, updateAddress, deleteAddress, setDefaultAddress,
+    sellerStats, getSellerStats, payCommission, canSellerList,
+  ]);
 
   return (
     <AppDataContext.Provider value={contextValue}>

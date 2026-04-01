@@ -13,8 +13,13 @@ const adminUser = {
 };
 import { supabase, testSupabaseConnection, isSupabaseReady } from '../lib/supabase';
 import { profileService } from '../services/supabase/profileService';
+import { hashPassword, verifyPassword } from '../utils/hash';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
+
+// Admin credentials from env vars — never hardcode in source
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'missal@makefarmhub.com';
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || '';
 
 const DEFAULT_AVATARS: Record<string, string> = {
   farmer: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face',
@@ -157,13 +162,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Login with password (for returning users)
   const loginWithPassword = async (identifier: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // Admin shortcut
-    if (identifier.includes('admin') || identifier.includes('000')) {
-      if (password === 'admin' || password === '1234') {
-        setUser(adminUser);
-        localStorage.setItem('makefarmhub_user', JSON.stringify(adminUser));
-        return { success: true };
-      }
+    // Admin login — only matches exact admin email, requires env-configured password
+    if (identifier === ADMIN_EMAIL && ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
+      setUser(adminUser);
+      localStorage.setItem('makefarmhub_user', JSON.stringify(adminUser));
+      return { success: true };
+    }
+    if (identifier === ADMIN_EMAIL) {
       return { success: false, error: 'Invalid credentials' };
     }
 
@@ -217,19 +222,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Fallback: Check stored users (flexible phone matching)
     const storedUsers = JSON.parse(localStorage.getItem('makefarmhub_registered_users') || '[]');
     const cleanId = identifier.replace(/\s/g, '');
-    const user = storedUsers.find((u: any) => 
-      (u.email === identifier || u.phone === identifier || 
-       u.phone?.replace(/\s/g, '') === cleanId ||
-       u.email?.toLowerCase() === identifier.toLowerCase()) && u.password === password
+    const matchingUser = storedUsers.find((u: any) =>
+      u.email === identifier || u.phone === identifier ||
+      u.phone?.replace(/\s/g, '') === cleanId ||
+      u.email?.toLowerCase() === identifier.toLowerCase()
     );
-    
-    if (user) {
-      const { password: _, ...userWithoutPassword } = user;
-      setUser(userWithoutPassword);
-      localStorage.setItem('makefarmhub_user', JSON.stringify(userWithoutPassword));
-      return { success: true };
+
+    if (matchingUser) {
+      // Verify hashed password
+      const isValid = matchingUser.passwordHash
+        ? await verifyPassword(password, matchingUser.passwordHash)
+        : matchingUser.password === password; // legacy plaintext fallback
+      if (isValid) {
+        const { password: _, passwordHash: __, ...userWithoutPassword } = matchingUser;
+        setUser(userWithoutPassword);
+        localStorage.setItem('makefarmhub_user', JSON.stringify(userWithoutPassword));
+        return { success: true };
+      }
     }
-    
+
     return { success: false, error: 'Wrong email/phone or password. Please try again.' };
   };
 
@@ -258,12 +269,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (phone: string, otp: string, token: string): Promise<{ success: boolean; error?: string }> => {
-    // Check for admin login (special phone number)
-    if (phone.includes('admin') || phone.includes('000')) {
-      setUser(adminUser);
-      localStorage.setItem('makefarmhub_user', JSON.stringify(adminUser));
-      return { success: true };
-    }
 
     if (useSupabase) {
       try {
@@ -400,7 +405,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Fallback: store locally with password
+    // Fallback: store locally with hashed password
+    const passwordHash = await hashPassword(password);
     const newUser: any = {
       id: `user-${Date.now()}`,
       name,
@@ -408,7 +414,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       role,
       location,
-      password,
+      passwordHash,
       verified: true,
       avatar: DEFAULT_AVATARS[role] || DEFAULT_AVATARS.buyer,
       createdAt: new Date().toISOString().split('T')[0],
@@ -418,7 +424,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     storedUsers.push(newUser);
     localStorage.setItem('makefarmhub_registered_users', JSON.stringify(storedUsers));
 
-    const { password: _, ...userWithoutPassword } = newUser;
+    const { passwordHash: _h, ...userWithoutPassword } = newUser;
     setUser(userWithoutPassword);
     localStorage.setItem('makefarmhub_user', JSON.stringify(userWithoutPassword));
     return { success: true };

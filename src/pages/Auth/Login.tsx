@@ -23,13 +23,6 @@ export default function Login() {
     setIsLoading(true);
     setError('');
 
-    // Admin shortcut
-    if (identifier.includes('admin') || identifier.includes('000')) {
-      setStep('password');
-      setIsLoading(false);
-      return;
-    }
-
     const result = await checkUserExists(identifier);
 
     if (result.exists) {

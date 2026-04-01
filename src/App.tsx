@@ -8,6 +8,7 @@ import { LanguageProvider } from './context/LanguageContext';
 import { AccessibilityProvider } from './components/Accessibility/AccessibilityProvider';
 import Layout from './components/Layout/Layout';
 import DashboardLayout from './components/Dashboard/DashboardLayout';
+import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import MetaTags from './components/SEO/MetaTags';
 import StructuredData, { defaultOrganizationData } from './components/SEO/StructuredData';
 import GoogleAnalytics from './components/Analytics/GoogleAnalytics';
@@ -57,10 +58,15 @@ const Vehicles = lazy(() => import('./pages/Transport/Vehicles'));
 const PrivacyPolicy = lazy(() => import('./pages/Legal/PrivacyPolicy'));
 const TermsConditions = lazy(() => import('./pages/Legal/TermsConditions'));
 const HelpCenter = lazy(() => import('./pages/Help/HelpCenter'));
+const NotFound = lazy(() => import('./pages/NotFound/NotFound'));
 
 // Loading fallback component
 const PageLoader = () => (
   <div className="page-loader">
+    <div className="page-loader-brand">
+      <span className="page-loader-icon" role="img" aria-label="leaf">🌿</span>
+      <span className="page-loader-name">MakeFarmHub</span>
+    </div>
     <div className="loading-spinner" />
   </div>
 );
@@ -143,7 +149,9 @@ function AppRoutes() {
       <Route
         element={
           <ProtectedRoute>
-            <DashboardLayout />
+            <ErrorBoundary>
+              <DashboardLayout />
+            </ErrorBoundary>
           </ProtectedRoute>
         }
       >
@@ -181,7 +189,9 @@ function AppRoutes() {
       <Route
         element={
           <ProtectedRoute>
-            <Layout />
+            <ErrorBoundary>
+              <Layout />
+            </ErrorBoundary>
           </ProtectedRoute>
         }
       >
@@ -189,8 +199,8 @@ function AppRoutes() {
         <Route path="listing/:id" element={<ListingDetail />} />
       </Route>
 
-      {/* Catch all */}
-      <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />} />
+      {/* 404 - Not Found */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
     </Suspense>
   );
