@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './components/UI/Toast';
@@ -59,6 +59,21 @@ const PrivacyPolicy = lazy(() => import('./pages/Legal/PrivacyPolicy'));
 const TermsConditions = lazy(() => import('./pages/Legal/TermsConditions'));
 const HelpCenter = lazy(() => import('./pages/Help/HelpCenter'));
 const NotFound = lazy(() => import('./pages/NotFound/NotFound'));
+
+// Scroll to top and focus management on route changes
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    // Focus the main content area for screen readers after navigation
+    const main = document.querySelector('main') || document.querySelector('#app');
+    if (main) {
+      main.setAttribute('tabIndex', '-1');
+      (main as HTMLElement).focus();
+    }
+  }, [pathname]);
+  return null;
+}
 
 // Loading fallback component
 const PageLoader = () => (
@@ -125,6 +140,7 @@ function AppRoutes() {
 
   return (
     <Suspense fallback={<PageLoader />}>
+    <ScrollToTop />
     <Routes>
       {/* Public Routes */}
       <Route
@@ -220,7 +236,9 @@ function AppWithProviders() {
       <Suspense fallback={null}>
         <OfflineIndicator />
       </Suspense>
-      <AppRoutes />
+      <ErrorBoundary>
+        <AppRoutes />
+      </ErrorBoundary>
       <Suspense fallback={null}>
         <BottomNavigation />
         <AccessibilityPanel />
@@ -234,7 +252,9 @@ function AppWithProviders() {
       <MetaTags />
       <StructuredData type="organization" data={defaultOrganizationData} />
       <GoogleAnalytics />
-      <AppRoutes />
+      <ErrorBoundary>
+        <AppRoutes />
+      </ErrorBoundary>
     </>
   );
 

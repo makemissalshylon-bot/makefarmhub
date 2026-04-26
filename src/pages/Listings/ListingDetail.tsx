@@ -240,7 +240,7 @@ export default function ListingDetail() {
                   className={`thumbnail ${index === currentImage ? 'active' : ''}`}
                   onClick={() => setCurrentImage(index)}
                 >
-                  <img src={img} alt={`${listing.title} ${index + 1}`} />
+                  <img src={img} alt={`${listing.title} ${index + 1}`} loading="lazy" />
                 </button>
               ))}
             </div>

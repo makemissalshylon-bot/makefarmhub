@@ -238,7 +238,7 @@ export default function Orders() {
               return (
                 <div key={order.id} className="order-card">
                   <div className="order-main">
-                    <img src={order.listingImage} alt={order.listingTitle} />
+                    <img src={order.listingImage} alt={order.listingTitle} loading="lazy" />
                     <div className="order-info">
                       <div className="order-header">
                         <h3>{order.listingTitle}</h3>

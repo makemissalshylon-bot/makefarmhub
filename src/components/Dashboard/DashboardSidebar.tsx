@@ -120,7 +120,7 @@ export default function DashboardSidebar({ isOpen, onClose, isMobile }: Dashboar
       <>
         {/* Overlay */}
         {isOpen && (
-          <div className="sidebar-overlay" onClick={onClose} />
+          <div className="sidebar-overlay" onClick={onClose} role="button" aria-label="Close sidebar" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClose(); }} />
         )}
         
         {/* Sidebar Drawer */}

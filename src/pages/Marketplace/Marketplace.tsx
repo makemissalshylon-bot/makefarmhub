@@ -534,12 +534,17 @@ export default function Marketplace() {
               key={listing.id}
               className={`listing-card ${viewMode}`}
               onClick={() => setSelectedListing(listing)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedListing(listing); }}
+              role="button"
+              tabIndex={0}
+              aria-label={`View ${listing.title}`}
               style={{ cursor: 'pointer' }}
             >
               <div className="listing-image">
-                <img src={listing.images[0]} alt={listing.title} />
+                <img src={listing.images[0]} alt={listing.title} loading="lazy" />
                 <button
                   className={`btn-favorite ${isFavorite(listing.id) ? 'active' : ''}`}
+                  aria-label={isFavorite(listing.id) ? 'Remove from favorites' : 'Add to favorites'}
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleFavorite(listing.id);
@@ -575,7 +580,7 @@ export default function Marketplace() {
                   </div>
                 </div>
                 <div className="listing-seller">
-                  <img src={listing.sellerAvatar} alt={listing.sellerName} />
+                  <img src={listing.sellerAvatar} alt={listing.sellerName} loading="lazy" />
                   <span>{listing.sellerName}</span>
                 </div>
               </div>

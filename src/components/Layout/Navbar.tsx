@@ -118,6 +118,7 @@ export default function Navbar() {
             className="navbar__icon-btn theme-toggle"
             onClick={toggleTheme}
             title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
           >
             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
           </button>
@@ -125,6 +126,7 @@ export default function Navbar() {
           <button
             className="navbar__icon-btn"
             onClick={() => setShowNotifications(!showNotifications)}
+            aria-label="Notifications"
           >
             <Bell size={20} />
             <span className="notification-badge">3</span>
@@ -184,6 +186,7 @@ export default function Navbar() {
           <button
             className="navbar__mobile-toggle"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
