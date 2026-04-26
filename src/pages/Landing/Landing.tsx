@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useScrollAnimation, useParallax } from '../../hooks/useScrollAnimation';
+import { useMeta } from '../../hooks/useMeta';
 import { seoService } from '../../services/seo/SEOService';
 import {
   ArrowRight,

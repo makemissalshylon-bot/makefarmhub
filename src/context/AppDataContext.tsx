@@ -154,6 +154,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return saved ? JSON.parse(saved) : {};
   });
 
+  // Keep refs to frequently-read state so callbacks can read current values
+  // without adding them to dependency arrays (which causes cascading re-renders).
+  const ordersRef = useRef(orders);
+  ordersRef.current = orders;
+  const favoritesRef = useRef(favorites);
+  favoritesRef.current = favorites;
+  const walletBalanceRef = useRef(walletBalance);
+  walletBalanceRef.current = walletBalance;
+  const sellerStatsRef = useRef(sellerStats);
+  sellerStatsRef.current = sellerStats;
+
   // ============================================
   // SUPABASE DATA LOADING
   // ============================================
@@ -542,9 +553,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // WALLET FUNCTIONS
   // ============================================
   const addFunds = useCallback((amount: number, method: string) => {
+    if (amount <= 0) return;
+    const txnId = `txn-${Date.now()}`;
     setWalletBalance(prev => prev + amount);
     setWalletTransactions(prev => [{
-      id: `txn-${Date.now()}`,
+      id: txnId,
       type: 'deposit',
       amount,
       description: `${method} Deposit`,
@@ -553,41 +566,70 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }, ...prev]);
 
     if (supabaseReady.current && user) {
-      walletService.deposit(user.id, amount, method).catch(err => console.error('Error depositing:', err));
+      walletService.deposit(user.id, amount, method).catch(err => {
+        console.error('Error depositing:', err);
+        // Rollback optimistic update on failure
+        setWalletBalance(prev => prev - amount);
+        setWalletTransactions(prev => prev.map(t =>
+          t.id === txnId ? { ...t, status: 'failed' as const } : t
+        ));
+      });
     }
   }, [user]);
 
   const withdrawFunds = useCallback((amount: number, method: string) => {
-    if (amount <= walletBalance) {
-      setWalletBalance(prev => prev - amount);
-      setWalletTransactions(prev => [{
-        id: `txn-${Date.now()}`,
-        type: 'withdrawal',
-        amount: -amount,
-        description: `Withdrawal to ${method}`,
-        date: new Date().toISOString().split('T')[0],
-        status: 'completed',
-      }, ...prev]);
+    if (amount <= 0 || amount > walletBalanceRef.current) return;
+    const txnId = `txn-${Date.now()}`;
+    setWalletBalance(prev => prev - amount);
+    setWalletTransactions(prev => [{
+      id: txnId,
+      type: 'withdrawal',
+      amount: -amount,
+      description: `Withdrawal to ${method}`,
+      date: new Date().toISOString().split('T')[0],
+      status: 'completed',
+    }, ...prev]);
 
-      if (supabaseReady.current && user) {
-        walletService.withdraw(user.id, amount, method).catch(err => console.error('Error withdrawing:', err));
-      }
+    if (supabaseReady.current && user) {
+      walletService.withdraw(user.id, amount, method).catch(err => {
+        console.error('Error withdrawing:', err);
+        // Rollback optimistic update on failure
+        setWalletBalance(prev => prev + amount);
+        setWalletTransactions(prev => prev.map(t =>
+          t.id === txnId ? { ...t, status: 'failed' as const } : t
+        ));
+      });
     }
-  }, [walletBalance, user]);
+  }, [user]);
+
+  // Track in-flight escrow releases to prevent double-click / duplicate processing
+  const releasingRef = useRef<Set<string>>(new Set());
 
   const releaseEscrow = useCallback((orderId: string) => {
-    setOrders(prev => prev.map(order => 
-      order.id === orderId ? { ...order, status: 'completed' } : order
+    // Only allow release from 'delivered' status; skip if already in-flight
+    const order = ordersRef.current.find(o => o.id === orderId);
+    if (!order || order.status !== 'delivered') return;
+    if (releasingRef.current.has(orderId)) return;
+    releasingRef.current.add(orderId);
+
+    setOrders(prev => prev.map(o => 
+      o.id === orderId ? { ...o, status: 'completed' } : o
     ));
     
     if (supabaseReady.current) {
-      const order = orders.find(o => o.id === orderId);
-      if (order) {
-        walletService.releaseEscrow(order.buyerId, order.sellerId, order.escrowAmount || order.totalPrice, orderId)
-          .catch(err => console.error('Error releasing escrow:', err));
-        orderService.updateStatus(orderId, 'completed')
-          .catch(err => console.error('Error updating order:', err));
-      }
+      walletService.releaseEscrow(order.buyerId, order.sellerId, order.escrowAmount || order.totalPrice, orderId)
+        .catch(err => {
+          console.error('Error releasing escrow:', err);
+          // Rollback status on failure
+          setOrders(prev => prev.map(o =>
+            o.id === orderId ? { ...o, status: 'delivered' } : o
+          ));
+        })
+        .finally(() => { releasingRef.current.delete(orderId); });
+      orderService.updateStatus(orderId, 'completed')
+        .catch(err => console.error('Error updating order:', err));
+    } else {
+      releasingRef.current.delete(orderId);
     }
 
     createNotification({
@@ -596,16 +638,27 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       message: `Escrow payment for order #${orderId} has been released to the seller`,
       actionUrl: `/orders/${orderId}`,
     });
-  }, [createNotification, orders]);
+  }, [createNotification]);
 
   const raiseDispute = useCallback((orderId: string, _reason: string) => {
-    setOrders(prev => prev.map(order => 
-      order.id === orderId ? { ...order, status: 'disputed' } : order
+    // Only allow dispute from 'delivered' or 'in_transit' status
+    const order = ordersRef.current.find(o => o.id === orderId);
+    if (!order || (order.status !== 'delivered' && order.status !== 'in_transit')) return;
+
+    const prevStatus = order.status;
+    setOrders(prev => prev.map(o => 
+      o.id === orderId ? { ...o, status: 'disputed' } : o
     ));
     
     if (supabaseReady.current) {
       orderService.updateStatus(orderId, 'disputed')
-        .catch(err => console.error('Error updating order:', err));
+        .catch(err => {
+          console.error('Error updating order:', err);
+          // Rollback on failure
+          setOrders(prev => prev.map(o =>
+            o.id === orderId ? { ...o, status: prevStatus } : o
+          ));
+        });
     }
 
     createNotification({
@@ -769,8 +822,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, []);
   
   const isFavorite = useCallback((listingId: string) => {
-    return favorites.includes(listingId);
-  }, [favorites]);
+    return favoritesRef.current.includes(listingId);
+  }, []);
 
   // ============================================
   // ADDRESS FUNCTIONS
@@ -815,8 +868,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // SELLER COMMISSION FUNCTIONS
   // ============================================
   const getSellerStats = useCallback((sellerId: string): SellerStats => {
-    return sellerStats[sellerId] || { totalSales: 0, commissionPaid: false };
-  }, [sellerStats]);
+    return sellerStatsRef.current[sellerId] || { totalSales: 0, commissionPaid: false };
+  }, []);
   
   const payCommission = useCallback((sellerId: string, amount: number) => {
     setSellerStats(prev => {
@@ -847,14 +900,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       title: 'Service Contribution Paid',
       message: `You can now continue listing and selling products. Thank you for supporting MakeFarmHub!`,
     });
-  }, [sellerStats, createNotification]);
+  }, [createNotification]);
   
   const canSellerList = useCallback((sellerId: string): boolean => {
-    const stats = sellerStats[sellerId];
+    const stats = sellerStatsRef.current[sellerId];
     if (!stats) return true;
     if (stats.totalSales < 100) return true;
     return stats.commissionPaid;
-  }, [sellerStats]);
+  }, []);
 
   const contextValue = useMemo<AppDataContextType>(() => ({
     orders,

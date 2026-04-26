@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAppData } from '../../context/AppDataContext';
 import { useScrollAnimation } from '../../hooks/useScrollAnimation';
+import { useMeta } from '../../hooks/useMeta';
 import { useToast } from '../../components/UI/Toast';
 import ProductQuickView from '../../components/Marketplace/ProductQuickView';
 import type { Listing, ListingCategory } from '../../types';
@@ -66,6 +67,14 @@ export default function Marketplace() {
     return saved ? JSON.parse(saved) : [];
   });
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useMeta({
+    title: 'Marketplace - MAKEFARMHUB',
+    description: 'Browse thousands of agricultural products from verified farmers across Zimbabwe. Fresh produce, livestock, and equipment.',
+    keywords: 'buy produce, farm products, agricultural goods, Zimbabwe farming, fresh vegetables, livestock market',
+    url: '/marketplace',
+    type: 'website',
+  });
 
   // Popular/trending searches
   const trendingSearches = ['organic vegetables', 'broiler chickens', 'maize grain', 'beef cattle', 'fresh eggs'];

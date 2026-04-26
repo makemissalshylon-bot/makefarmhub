@@ -119,15 +119,15 @@ class NotificationService {
    */
   private getNotificationIcon(type: Notification['type']): string {
     const icons: Record<string, string> = {
-      order: '/icons/order.png',
-      message: '/icons/message.png',
-      payment: '/icons/payment.png',
-      system: '/icons/system.png',
-      success: '/icons/success.png',
-      warning: '/icons/warning.png',
-      info: '/icons/info.png',
+      order: '/icons/order.svg',
+      message: '/icons/message.svg',
+      payment: '/icons/payment.svg',
+      system: '/icons/system.svg',
+      success: '/icons/success.svg',
+      warning: '/icons/warning.svg',
+      info: '/icons/info.svg',
     };
-    return icons[type] || '/icons/default.png';
+    return icons[type] || '/icons/default.svg';
   }
 
   /**

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useMeta } from '../../hooks/useMeta';
 import {
   Search,
   Book,
@@ -121,6 +122,12 @@ const quickLinks = [
 ];
 
 export default function HelpCenter() {
+  useMeta({
+    title: 'Help Center - MAKEFARMHUB',
+    description: 'Find answers to common questions about MAKEFARMHUB. Get help with buying, selling, payments, and transport.',
+    url: '/help',
+  });
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [expandedFAQ, setExpandedFAQ] = useState<string | null>(null);

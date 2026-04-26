@@ -206,6 +206,41 @@ function AppRoutes() {
   );
 }
 
+function AppWithProviders() {
+  const { isAuthenticated } = useAuth();
+
+  // Only mount AppDataProvider when authenticated — guest users don't need
+  // orders, wallet, messages, etc. This avoids all that state init + Supabase
+  // loading for visitors on Landing / Login / Signup.
+  const dataProvider = isAuthenticated ? (
+    <AppDataProvider>
+      <MetaTags />
+      <StructuredData type="organization" data={defaultOrganizationData} />
+      <GoogleAnalytics />
+      <Suspense fallback={null}>
+        <OfflineIndicator />
+      </Suspense>
+      <AppRoutes />
+      <Suspense fallback={null}>
+        <BottomNavigation />
+        <AccessibilityPanel />
+        <LiveChat />
+        <WelcomeTour />
+        <InstallPrompt />
+      </Suspense>
+    </AppDataProvider>
+  ) : (
+    <>
+      <MetaTags />
+      <StructuredData type="organization" data={defaultOrganizationData} />
+      <GoogleAnalytics />
+      <AppRoutes />
+    </>
+  );
+
+  return dataProvider;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -214,22 +249,7 @@ function App() {
           <AccessibilityProvider>
             <ToastProvider>
               <AuthProvider>
-                <AppDataProvider>
-                  <MetaTags />
-                  <StructuredData type="organization" data={defaultOrganizationData} />
-                  <GoogleAnalytics />
-                  <Suspense fallback={null}>
-                    <OfflineIndicator />
-                  </Suspense>
-                  <AppRoutes />
-                  <Suspense fallback={null}>
-                    <BottomNavigation />
-                    <AccessibilityPanel />
-                    <LiveChat />
-                    <WelcomeTour />
-                    <InstallPrompt />
-                  </Suspense>
-                </AppDataProvider>
+                <AppWithProviders />
               </AuthProvider>
             </ToastProvider>
           </AccessibilityProvider>

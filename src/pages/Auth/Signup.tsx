@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useMeta } from '../../hooks/useMeta';
 import type { UserRole } from '../../types';
 import {
   ArrowRight,
@@ -28,6 +29,12 @@ const roles: { id: UserRole; title: string; description: string; icon: typeof Tr
 ];
 
 export default function Signup() {
+  useMeta({
+    title: 'Sign Up - MAKEFARMHUB',
+    description: 'Create your MAKEFARMHUB account. Join as a farmer, buyer, or transporter on Zimbabwe\'s leading agricultural marketplace.',
+    url: '/signup',
+  });
+
   const [step, setStep] = useState<'role' | 'details' | 'otp'>('role');
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [formData, setFormData] = useState({

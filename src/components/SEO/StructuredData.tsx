@@ -109,7 +109,7 @@ export default function StructuredData({ type, data }: StructuredDataProps) {
 export const defaultOrganizationData: OrganizationData = {
   name: 'MAKEFARMHUB',
   url: 'https://makefarmhub.vercel.app',
-  logo: 'https://makefarmhub.vercel.app/icons/icon-512x512.png',
+  logo: 'https://makefarmhub.vercel.app/icons/icon-512x512.svg',
   description: 'Zimbabwe\'s leading digital agriculture marketplace connecting farmers, buyers, and transporters.',
   contactPoint: {
     telephone: '+263-XXX-XXXXXX',

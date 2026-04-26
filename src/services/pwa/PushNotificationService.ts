@@ -132,8 +132,8 @@ class PushNotificationService {
     try {
       await this.registration.showNotification('Test Notification', {
         body: 'This is a test notification from MAKEFARMHUB',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/badge-72x72.png',
+        icon: '/icons/icon-192x192.svg',
+        badge: '/icons/badge-72x72.svg',
         tag: 'test',
         data: { url: '/' },
       } as NotificationOptions);
@@ -151,8 +151,8 @@ class PushNotificationService {
     try {
       await this.registration.showNotification(payload.title, {
         body: payload.body,
-        icon: payload.icon || '/icons/icon-192x192.png',
-        badge: payload.badge || '/icons/badge-72x72.png',
+        icon: payload.icon || '/icons/icon-192x192.svg',
+        badge: payload.badge || '/icons/badge-72x72.svg',
         tag: payload.tag || 'default',
         data: { ...payload.data, url: payload.url },
         requireInteraction: false,

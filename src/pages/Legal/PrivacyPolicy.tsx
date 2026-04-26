@@ -1,8 +1,15 @@
 import { ArrowLeft, Shield, Mail, Phone, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useMeta } from '../../hooks/useMeta';
 import '../../styles/legal.css';
 
 export default function PrivacyPolicy() {
+  useMeta({
+    title: 'Privacy Policy - MAKEFARMHUB',
+    description: 'Learn how MAKEFARMHUB collects, uses, and protects your personal information.',
+    url: '/privacy',
+  });
+
   const navigate = useNavigate();
   const lastUpdated = 'December 3, 2025';
 

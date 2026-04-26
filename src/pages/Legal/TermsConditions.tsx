@@ -1,8 +1,15 @@
 import { ArrowLeft, FileText, Mail, Phone, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useMeta } from '../../hooks/useMeta';
 import '../../styles/legal.css';
 
 export default function TermsConditions() {
+  useMeta({
+    title: 'Terms & Conditions - MAKEFARMHUB',
+    description: 'Read the terms and conditions for using MAKEFARMHUB\'s agricultural marketplace platform.',
+    url: '/terms',
+  });
+
   const navigate = useNavigate();
   const lastUpdated = 'December 3, 2025';
 

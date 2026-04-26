@@ -24,10 +24,10 @@ interface ProviderInfo {
 }
 
 const providers: ProviderInfo[] = [
-  { id: 'ecocash', name: 'EcoCash', logo: '/icons/ecocash.png', color: '#00a651', prefix: ['077', '078'] },
-  { id: 'onemoney', name: 'OneMoney', logo: '/icons/onemoney.png', color: '#e31937', prefix: ['071'] },
-  { id: 'innbucks', name: 'InnBucks', logo: '/icons/innbucks.png', color: '#1a3c6e', prefix: [] },
-  { id: 'telecash', name: 'Telecash', logo: '/icons/telecash.png', color: '#0066b3', prefix: ['073'] },
+  { id: 'ecocash', name: 'EcoCash', logo: '/icons/mobile-money/ecocash.svg', color: '#00a651', prefix: ['077', '078'] },
+  { id: 'onemoney', name: 'OneMoney', logo: '/icons/mobile-money/onemoney.svg', color: '#e31937', prefix: ['071'] },
+  { id: 'innbucks', name: 'InnBucks', logo: '/icons/mobile-money/innbucks.svg', color: '#1a3c6e', prefix: [] },
+  { id: 'telecash', name: 'Telecash', logo: '/icons/mobile-money/telecash.svg', color: '#0066b3', prefix: ['073'] },
 ];
 
 export default function MobileMoneyPayment({

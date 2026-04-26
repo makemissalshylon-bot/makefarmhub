@@ -1,9 +1,16 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useMeta } from '../../hooks/useMeta';
 import { ArrowRight, Loader2, Mail, Phone, Lock } from 'lucide-react';
 
 export default function Login() {
+  useMeta({
+    title: 'Login - MAKEFARMHUB',
+    description: 'Sign in to your MAKEFARMHUB account to buy and sell agricultural products across Zimbabwe.',
+    url: '/login',
+  });
+
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [step, setStep] = useState<'identifier' | 'password'>('identifier');
