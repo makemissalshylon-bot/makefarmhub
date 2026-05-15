@@ -1,5 +1,6 @@
 -- MakeFarmHub Database Schema
--- Initial migration: core tables, relationships, RLS policies, and functions
+-- Consolidated migration: all tables, relationships, RLS policies, triggers, and functions
+-- This file is the SINGLE SOURCE OF TRUTH — matches the service layer code exactly.
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
