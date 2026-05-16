@@ -511,6 +511,18 @@ export default function Messages() {
               />
               <button 
                 type="button" 
+                className="btn-icon btn-close-chat-mobile"
+                onClick={() => setSelectedConversation(null)}
+                title="Close chat"
+                style={{
+                  background: '#ef4444',
+                  color: 'white',
+                }}
+              >
+                <X size={20} />
+              </button>
+              <button 
+                type="button" 
                 className="btn-icon"
                 onClick={() => fileInputRef.current?.click()}
                 title="Send image"
