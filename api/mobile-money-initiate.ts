@@ -1,16 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { withSecurityHeaders } from './_middleware/securityHeaders';
+import { withRateLimit } from './_middleware/rateLimit';
+import { withValidation, validators } from './_middleware/validateInput';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || '',
   process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 );
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
+const handler = async (req: VercelRequest, res: VercelResponse) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -171,3 +170,16 @@ async function initiateTelecash(phone: string, amount: number, ref: string) {
 
   return response.json();
 }
+
+// Apply middleware: rate limiting (5 requests/minute), validation, security headers
+export default withSecurityHeaders(
+  withRateLimit(
+    withValidation(handler, {
+      provider: validators.enum(['ecocash', 'onemoney', 'innbucks', 'telecash']),
+      phoneNumber: validators.phone,
+      amount: validators.positiveNumber,
+      userId: validators.uuid,
+    }),
+    { windowMs: 60000, maxRequests: 5 }
+  )
+);

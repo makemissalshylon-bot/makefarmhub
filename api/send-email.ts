@@ -1,15 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-/**
- * Email Notification Service
- * Sends transactional emails for orders, payments, and updates
- * 
- * Production options:
- * - SendGrid: https://sendgrid.com/
- * - Mailgun: https://www.mailgun.com/
- * - AWS SES: https://aws.amazon.com/ses/
- * - Resend: https://resend.com/
- */
+import { withSecurityHeaders } from './_middleware/securityHeaders';
+import { withRateLimit } from './_middleware/rateLimit';
+import { withValidation, validators } from './_middleware/validateInput';
 
 interface EmailRequest {
   to: string;
@@ -18,13 +10,7 @@ interface EmailRequest {
   data: Record<string, any>;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
+const handler = async (req: VercelRequest, res: VercelResponse) => {
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -50,30 +36,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Generate email content based on template
     const emailContent = generateEmailContent(template, data);
 
-    // In production, use email service
-    // Example with SendGrid:
-    // const sgMail = require('@sendgrid/mail');
-    // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    // await sgMail.send({
-    //   to,
-    //   from: 'noreply@makefarmhub.com',
-    //   subject,
-    //   html: emailContent,
-    // });
+    // Send email via SendGrid
+    if (process.env.SENDGRID_API_KEY) {
+      const sgMail = require('@sendgrid/mail');
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      
+      const msg = {
+        to,
+        from: process.env.SENDGRID_FROM_EMAIL || 'noreply@makefarmhub.com',
+        fromName: process.env.SENDGRID_FROM_NAME || 'MakeFarmHub',
+        subject,
+        html: emailContent,
+      };
 
-    // Log email for development
-    console.log('Email Sent:', {
-      to,
-      subject,
-      template,
-      timestamp: new Date().toISOString(),
-    });
+      try {
+        const result = await sgMail.send(msg);
+        console.log('SendGrid email sent:', result[0].statusCode);
+        
+        return res.status(200).json({
+          success: true,
+          message: 'Email sent successfully',
+          emailId: result[0].headers['x-message-id'] || `email_${Date.now()}`,
+        });
+      } catch (sgError: any) {
+        console.error('SendGrid error:', sgError.response?.body || sgError);
+        throw new Error(`SendGrid failed: ${sgError.message}`);
+      }
+    } else {
+      // Development mode - log email instead of sending
+      console.log('Email (dev mode - SendGrid not configured):', {
+        to,
+        subject,
+        template,
+        timestamp: new Date().toISOString(),
+      });
 
-    return res.status(200).json({
-      success: true,
-      message: 'Email sent successfully',
-      emailId: `email_${Date.now()}`,
-    });
+      return res.status(200).json({
+        success: true,
+        message: 'Email logged (dev mode)',
+        emailId: `email_${Date.now()}`,
+        devMode: true,
+      });
+    }
 
   } catch (error: any) {
     console.error('Email Send Error:', error);
@@ -255,3 +259,16 @@ function generateEmailContent(template: string, data: Record<string, any>): stri
       return '<p>Email content</p>';
   }
 }
+
+// Apply middleware: rate limiting (20 emails/minute), validation, security headers
+export default withSecurityHeaders(
+  withRateLimit(
+    withValidation(handler, {
+      to: validators.email,
+      subject: validators.minLength(1),
+      template: validators.enum(['order_confirmation', 'payment_receipt', 'delivery_update', 'message_notification']),
+      data: validators.object,
+    }),
+    { windowMs: 60000, maxRequests: 20 }
+  )
+);

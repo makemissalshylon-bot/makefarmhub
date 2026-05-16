@@ -27,7 +27,8 @@ VALUES
 ON CONFLICT (user_id) DO NOTHING;
 
 -- Sample Vehicles
-INSERT INTO vehicles (owner_id, type, make, model, year, plate_number, capacity, capacity_unit, status)
+INSERT INTO vehicles (owner_id, owner_name, type, name, capacity, price_per_km, available, location, rating, trips)
 VALUES
-  ('00000000-0000-0000-0000-000000000004', 'Truck', 'Isuzu', 'FRR', 2018, 'ABD 1234', 5000, 'kg', 'available'),
-  ('00000000-0000-0000-0000-000000000004', 'Van', 'Toyota', 'Hiace', 2020, 'ABD 5678', 1500, 'kg', 'available');
+  ('00000000-0000-0000-0000-000000000004', 'Mike Transport', 'truck', 'Isuzu FRR 5-Ton Truck', '5000 kg', 2.50, true, 'Bulawayo', 4.9, 22),
+  ('00000000-0000-0000-0000-000000000004', 'Mike Transport', 'pickup', 'Toyota Hiace Van', '1500 kg', 1.80, true, 'Bulawayo', 4.9, 15)
+ON CONFLICT (id) DO NOTHING;

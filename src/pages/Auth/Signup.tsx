@@ -48,6 +48,7 @@ export default function Signup() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [otpToken, setOtpToken] = useState('');
+  const [devOTP, setDevOTP] = useState<string | undefined>();
   const [resendCooldown, setResendCooldown] = useState(0);
   const { signup, sendOTP } = useAuth();
   const navigate = useNavigate();
@@ -109,6 +110,7 @@ export default function Signup() {
 
     if (result.success && result.token) {
       setOtpToken(result.token);
+      setDevOTP(result.devOTP); // Capture dev OTP if available
       startResendCooldown();
     } else {
       setError(result.error || 'Failed to resend code');
@@ -303,6 +305,39 @@ export default function Signup() {
               <p>We've sent a verification code to</p>
               <strong>{formData.email}</strong>
             </div>
+
+            {devOTP && (
+              <div style={{
+                background: '#fef3c7',
+                border: '2px solid #f59e0b',
+                borderRadius: '8px',
+                padding: '15px',
+                margin: '15px 0',
+                textAlign: 'center'
+              }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#92400e' }}>
+                  🔓 <strong>Development Mode</strong>
+                </p>
+                <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#78350f' }}>
+                  Your verification code:
+                </p>
+                <div style={{
+                  background: '#fff',
+                  padding: '12px',
+                  borderRadius: '6px',
+                  fontSize: '24px',
+                  fontWeight: 'bold',
+                  letterSpacing: '4px',
+                  color: '#f59e0b',
+                  fontFamily: 'monospace'
+                }}>
+                  {devOTP}
+                </div>
+                <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: '#92400e' }}>
+                  Email service not configured - code shown for testing
+                </p>
+              </div>
+            )}
 
             <div className="form-group">
               <label htmlFor="otp">Enter Verification Code</label>

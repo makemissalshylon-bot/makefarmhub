@@ -244,7 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: false, error: 'Wrong email/phone or password. Please try again.' };
   };
 
-  const sendOTP = async (identifier: string, name?: string): Promise<{ success: boolean; token?: string; error?: string }> => {
+  const sendOTP = async (identifier: string, name?: string): Promise<{ success: boolean; token?: string; devOTP?: string; error?: string }> => {
     // Always use custom OTP API for faster delivery via SendGrid
     try {
       const isEmail = identifier.includes('@');
@@ -262,7 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error || 'Failed to send verification code' };
       }
 
-      return { success: true, token: data.token };
+      return { success: true, token: data.token, devOTP: data.devOTP };
     } catch {
       return { success: false, error: 'Network error. Please check your connection.' };
     }

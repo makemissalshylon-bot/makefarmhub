@@ -338,11 +338,26 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================
+-- LISTING FUNCTIONS
+-- ============================================
+
+-- Increment listing views
+CREATE OR REPLACE FUNCTION increment_views(listing_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE listings
+  SET views = views + 1
+  WHERE id = listing_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================
 -- GRANT PERMISSIONS
 -- ============================================
 
 -- Allow authenticated users to call these functions
 GRANT EXECUTE ON FUNCTION get_admin_stats() TO authenticated;
+GRANT EXECUTE ON FUNCTION increment_views(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_revenue_analytics(INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_top_products(INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_user_growth(INTEGER) TO authenticated;

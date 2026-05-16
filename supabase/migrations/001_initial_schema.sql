@@ -1,22 +1,22 @@
 -- MakeFarmHub Database Schema
 -- Consolidated migration: all tables, relationships, RLS policies, triggers, and functions
--- This file is the SINGLE SOURCE OF TRUTH â€” matches the service layer code exactly.
+-- This file is the SINGLE SOURCE OF TRUTH — matches the service layer code exactly.
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================
--- PROFILES TABLE
+-- PROFILES (extends Supabase auth.users)
 -- ============================================
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   email TEXT,
   phone TEXT,
-  role TEXT NOT NULL CHECK (role IN ('farmer', 'buyer', 'transporter', 'admin')),
+  role TEXT NOT NULL DEFAULT 'buyer' CHECK (role IN ('farmer', 'buyer', 'transporter', 'admin')),
   avatar TEXT,
-  location TEXT,
-  verified BOOLEAN DEFAULT FALSE,
+  location TEXT DEFAULT '',
+  verified BOOLEAN DEFAULT false,
   bio TEXT,
   rating DECIMAL(3,2) DEFAULT 0,
   total_reviews INTEGER DEFAULT 0,
@@ -24,229 +24,250 @@ CREATE TABLE profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_profiles_role ON profiles(role);
-CREATE INDEX idx_profiles_verified ON profiles(verified);
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
+CREATE INDEX IF NOT EXISTS idx_profiles_verified ON profiles(verified);
+
+-- Auto-create profile + wallet on signup
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO profiles (id, name, email, phone, role)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'name', ''),
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'phone', ''),
+    COALESCE(NEW.raw_user_meta_data->>'role', 'buyer')
+  );
+  INSERT INTO wallets (user_id) VALUES (NEW.id);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
 -- ============================================
--- LISTINGS TABLE
+-- LISTINGS
 -- ============================================
-CREATE TABLE listings (
+CREATE TABLE IF NOT EXISTS listings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   seller_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
-  description TEXT,
+  description TEXT DEFAULT '',
   category TEXT NOT NULL CHECK (category IN ('crops', 'livestock', 'equipment', 'seeds', 'fertilizers', 'other')),
-  subcategory TEXT,
-  price DECIMAL(10,2) NOT NULL,
-  unit TEXT NOT NULL,
-  quantity DECIMAL(10,2) NOT NULL,
-  location TEXT NOT NULL,
+  subcategory TEXT DEFAULT '',
+  price NUMERIC(12,2) NOT NULL DEFAULT 0,
+  unit TEXT DEFAULT 'kg',
+  quantity INTEGER DEFAULT 1,
+  location TEXT DEFAULT '',
   images TEXT[] DEFAULT '{}',
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'sold', 'inactive', 'pending')),
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'reserved', 'sold', 'draft')),
+  featured BOOLEAN DEFAULT false,
   views INTEGER DEFAULT 0,
-  featured BOOLEAN DEFAULT FALSE,
+  organic BOOLEAN DEFAULT false,
+  tags TEXT[] DEFAULT '{}',
+  ready_to_sell BOOLEAN DEFAULT false,
+  delivery_terms TEXT,
+  delivery_options TEXT[] DEFAULT '{}',
+  payment_options TEXT[] DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_listings_seller ON listings(seller_id);
-CREATE INDEX idx_listings_category ON listings(category);
-CREATE INDEX idx_listings_status ON listings(status);
-CREATE INDEX idx_listings_featured ON listings(featured);
-CREATE INDEX idx_listings_created ON listings(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_listings_seller ON listings(seller_id);
+CREATE INDEX IF NOT EXISTS idx_listings_category ON listings(category);
+CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status);
 
 -- ============================================
--- ORDERS TABLE
+-- ORDERS
 -- ============================================
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  buyer_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  seller_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  listing_id UUID REFERENCES listings(id) ON DELETE SET NULL,
-  quantity DECIMAL(10,2) NOT NULL,
-  total_price DECIMAL(10,2) NOT NULL,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'disputed')),
-  delivery_address TEXT,
-  delivery_method TEXT,
-  payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid', 'refunded', 'failed')),
+  listing_id UUID REFERENCES listings(id),
+  listing_title TEXT NOT NULL,
+  listing_image TEXT DEFAULT '',
+  buyer_id UUID NOT NULL REFERENCES profiles(id),
+  buyer_name TEXT NOT NULL,
+  seller_id UUID NOT NULL REFERENCES profiles(id),
+  seller_name TEXT NOT NULL,
+  transporter_id UUID REFERENCES profiles(id),
+  transporter_name TEXT,
+  quantity INTEGER NOT NULL DEFAULT 1,
+  unit_price NUMERIC(12,2) NOT NULL,
+  total_price NUMERIC(12,2) NOT NULL,
+  escrow_amount NUMERIC(12,2) DEFAULT 0,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'in_transit', 'delivered', 'completed', 'disputed', 'cancelled')),
+  delivery_address TEXT DEFAULT '',
   payment_method TEXT,
-  notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_orders_buyer ON orders(buyer_id);
-CREATE INDEX idx_orders_seller ON orders(seller_id);
-CREATE INDEX idx_orders_listing ON orders(listing_id);
-CREATE INDEX idx_orders_status ON orders(status);
-CREATE INDEX idx_orders_created ON orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_buyer ON orders(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_seller ON orders(seller_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 
 -- ============================================
--- WALLETS TABLE
+-- CONVERSATIONS & MESSAGES
 -- ============================================
-CREATE TABLE wallets (
+CREATE TABLE IF NOT EXISTS conversations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID UNIQUE NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  balance DECIMAL(10,2) DEFAULT 0 CHECK (balance >= 0),
-  escrow_held DECIMAL(10,2) DEFAULT 0 CHECK (escrow_held >= 0),
-  currency TEXT DEFAULT 'USD',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_wallets_user ON wallets(user_id);
-
--- ============================================
--- WALLET TRANSACTIONS TABLE
--- ============================================
-CREATE TABLE wallet_transactions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  type TEXT NOT NULL CHECK (type IN ('deposit', 'withdrawal', 'payment', 'refund', 'escrow_hold', 'escrow_release', 'commission')),
-  amount DECIMAL(10,2) NOT NULL,
-  fee DECIMAL(10,2) DEFAULT 0,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'cancelled')),
-  description TEXT,
-  reference TEXT,
-  metadata JSONB DEFAULT '{}',
+  participant_ids UUID[] NOT NULL,
+  listing_id UUID REFERENCES listings(id),
+  listing_title TEXT,
+  last_message TEXT DEFAULT '',
+  last_message_time TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_wallet_transactions_user ON wallet_transactions(user_id);
-CREATE INDEX idx_wallet_transactions_type ON wallet_transactions(type);
-CREATE INDEX idx_wallet_transactions_status ON wallet_transactions(status);
-CREATE INDEX idx_wallet_transactions_created ON wallet_transactions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_participants ON conversations USING GIN(participant_ids);
 
--- ============================================
--- DISPUTES TABLE
--- ============================================
-CREATE TABLE disputes (
+CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-  raised_by UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  raised_by_name TEXT,
-  reason TEXT NOT NULL,
-  description TEXT NOT NULL,
-  status TEXT DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
-  resolution TEXT,
-  resolved_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  messages JSONB DEFAULT '[]',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_disputes_order ON disputes(order_id);
-CREATE INDEX idx_disputes_raised_by ON disputes(raised_by);
-CREATE INDEX idx_disputes_status ON disputes(status);
-
--- ============================================
--- MESSAGES TABLE
--- ============================================
-CREATE TABLE messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  sender_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  recipient_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  listing_id UUID REFERENCES listings(id) ON DELETE SET NULL,
-  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL REFERENCES profiles(id),
+  sender_name TEXT NOT NULL,
   content TEXT NOT NULL,
-  read BOOLEAN DEFAULT FALSE,
+  read BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_messages_sender ON messages(sender_id);
-CREATE INDEX idx_messages_recipient ON messages(recipient_id);
-CREATE INDEX idx_messages_created ON messages(created_at DESC);
-CREATE INDEX idx_messages_unread ON messages(recipient_id, read) WHERE read = FALSE;
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 
 -- ============================================
--- REVIEWS TABLE
+-- REVIEWS
 -- ============================================
-CREATE TABLE reviews (
+CREATE TABLE IF NOT EXISTS reviews (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  reviewer_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  reviewee_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
-  listing_id UUID REFERENCES listings(id) ON DELETE SET NULL,
+  order_id UUID REFERENCES orders(id),
+  reviewer_id UUID NOT NULL REFERENCES profiles(id),
+  reviewer_name TEXT NOT NULL,
+  reviewer_avatar TEXT,
+  reviewer_role TEXT NOT NULL,
+  target_id UUID NOT NULL REFERENCES profiles(id),
+  target_name TEXT NOT NULL,
+  target_type TEXT NOT NULL CHECK (target_type IN ('seller', 'buyer', 'listing')),
   rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
-  comment TEXT,
+  title TEXT DEFAULT '',
+  comment TEXT NOT NULL,
+  images TEXT[] DEFAULT '{}',
+  helpful INTEGER DEFAULT 0,
+  verified BOOLEAN DEFAULT false,
+  seller_response JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_reviews_reviewer ON reviews(reviewer_id);
-CREATE INDEX idx_reviews_reviewee ON reviews(reviewee_id);
-CREATE INDEX idx_reviews_order ON reviews(order_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_target ON reviews(target_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_order ON reviews(order_id);
 
 -- ============================================
--- VEHICLES TABLE (for transporters)
+-- NOTIFICATIONS
 -- ============================================
-CREATE TABLE vehicles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  owner_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  type TEXT NOT NULL,
-  make TEXT,
-  model TEXT,
-  year INTEGER,
-  plate_number TEXT,
-  capacity DECIMAL(10,2),
-  capacity_unit TEXT,
-  status TEXT DEFAULT 'available' CHECK (status IN ('available', 'in_use', 'maintenance', 'inactive')),
-  photos TEXT[] DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_vehicles_owner ON vehicles(owner_id);
-CREATE INDEX idx_vehicles_status ON vehicles(status);
-
--- ============================================
--- TRANSPORT REQUESTS TABLE
--- ============================================
-CREATE TABLE transport_requests (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  requester_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  transporter_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
-  vehicle_id UUID REFERENCES vehicles(id) ON DELETE SET NULL,
-  pickup_location TEXT NOT NULL,
-  delivery_location TEXT NOT NULL,
-  cargo_description TEXT,
-  estimated_weight DECIMAL(10,2),
-  price DECIMAL(10,2),
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'in_transit', 'delivered', 'cancelled')),
-  pickup_date TIMESTAMPTZ,
-  delivery_date TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_transport_requests_requester ON transport_requests(requester_id);
-CREATE INDEX idx_transport_requests_transporter ON transport_requests(transporter_id);
-CREATE INDEX idx_transport_requests_status ON transport_requests(status);
-
--- ============================================
--- NOTIFICATIONS TABLE
--- ============================================
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  type TEXT NOT NULL,
   title TEXT NOT NULL,
   message TEXT NOT NULL,
-  link TEXT,
-  read BOOLEAN DEFAULT FALSE,
+  type TEXT NOT NULL CHECK (type IN ('order', 'message', 'payment', 'system', 'success', 'warning', 'info')),
+  read BOOLEAN DEFAULT false,
+  action_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+
+-- ============================================
+-- WALLETS & TRANSACTIONS
+-- ============================================
+CREATE TABLE IF NOT EXISTS wallets (
+  user_id UUID PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+  balance NUMERIC(12,2) DEFAULT 0,
+  pending_balance NUMERIC(12,2) DEFAULT 0,
+  escrow_held NUMERIC(12,2) DEFAULT 0,
+  currency TEXT DEFAULT 'USD',
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS wallet_transactions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES profiles(id),
+  type TEXT NOT NULL CHECK (type IN ('deposit', 'withdrawal', 'escrow_hold', 'escrow_release', 'payment', 'refund', 'commission')),
+  amount NUMERIC(12,2) NOT NULL,
+  fee NUMERIC(12,2) DEFAULT 0,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
+  description TEXT DEFAULT '',
+  reference TEXT DEFAULT '',
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_notifications_user ON notifications(user_id);
-CREATE INDEX idx_notifications_unread ON notifications(user_id, read) WHERE read = FALSE;
-CREATE INDEX idx_notifications_created ON notifications(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_wallet_tx_user ON wallet_transactions(user_id);
 
 -- ============================================
--- FUNCTIONS
+-- VEHICLES & TRANSPORT
 -- ============================================
+CREATE TABLE IF NOT EXISTS vehicles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  owner_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  owner_name TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('pickup', 'truck', 'lorry', 'refrigerated')),
+  name TEXT NOT NULL,
+  capacity TEXT DEFAULT '',
+  price_per_km NUMERIC(8,2) DEFAULT 0,
+  available BOOLEAN DEFAULT true,
+  location TEXT DEFAULT '',
+  image TEXT DEFAULT '',
+  rating NUMERIC(3,2) DEFAULT 0,
+  trips INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- Function to update updated_at timestamp
+CREATE INDEX IF NOT EXISTS idx_vehicles_owner ON vehicles(owner_id);
+
+CREATE TABLE IF NOT EXISTS transport_requests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  order_id UUID REFERENCES orders(id),
+  pickup_location TEXT NOT NULL,
+  delivery_location TEXT NOT NULL,
+  distance NUMERIC(10,2) DEFAULT 0,
+  estimated_price NUMERIC(12,2) DEFAULT 0,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'in_progress', 'completed')),
+  vehicle_id UUID REFERENCES vehicles(id),
+  scheduled_date TIMESTAMPTZ DEFAULT NOW(),
+  current_location TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- DISPUTES
+-- ============================================
+CREATE TABLE IF NOT EXISTS disputes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  order_id UUID REFERENCES orders(id),
+  order_title TEXT NOT NULL,
+  raised_by_id UUID NOT NULL REFERENCES profiles(id),
+  raised_by_name TEXT NOT NULL,
+  raised_by_role TEXT NOT NULL,
+  against_id UUID NOT NULL REFERENCES profiles(id),
+  against_name TEXT NOT NULL,
+  against_role TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  status TEXT DEFAULT 'open' CHECK (status IN ('open', 'investigating', 'resolved', 'escalated')),
+  amount NUMERIC(12,2) DEFAULT 0,
+  evidence TEXT[] DEFAULT '{}',
+  resolution TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  resolved_at TIMESTAMPTZ
+);
+
+-- ============================================
+-- TRIGGERS: updated_at
+-- ============================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -255,224 +276,114 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Triggers for updated_at
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
 CREATE TRIGGER update_listings_updated_at BEFORE UPDATE ON listings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_wallets_updated_at BEFORE UPDATE ON wallets
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_disputes_updated_at BEFORE UPDATE ON disputes
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_vehicles_updated_at BEFORE UPDATE ON vehicles
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
 CREATE TRIGGER update_transport_requests_updated_at BEFORE UPDATE ON transport_requests
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Function to update profile rating
+-- Trigger: update profile rating on new review
 CREATE OR REPLACE FUNCTION update_profile_rating()
 RETURNS TRIGGER AS $$
 BEGIN
   UPDATE profiles
-  SET 
-    rating = (SELECT AVG(rating) FROM reviews WHERE reviewee_id = NEW.reviewee_id),
-    total_reviews = (SELECT COUNT(*) FROM reviews WHERE reviewee_id = NEW.reviewee_id)
-  WHERE id = NEW.reviewee_id;
+  SET rating = (SELECT COALESCE(AVG(rating), 0) FROM reviews WHERE target_id = NEW.target_id),
+      total_reviews = (SELECT COUNT(*) FROM reviews WHERE target_id = NEW.target_id)
+  WHERE id = NEW.target_id;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_rating_on_review ON reviews;
 CREATE TRIGGER update_rating_on_review AFTER INSERT ON reviews
   FOR EACH ROW EXECUTE FUNCTION update_profile_rating();
 
 -- ============================================
--- ROW LEVEL SECURITY (RLS) POLICIES
+-- ROW LEVEL SECURITY (RLS)
 -- ============================================
-
--- Enable RLS on all tables
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE listings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wallets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wallet_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE disputes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transport_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
--- PROFILES POLICIES
-CREATE POLICY "Public profiles are viewable by everyone"
-  ON profiles FOR SELECT
-  USING (true);
+-- Profiles
+CREATE POLICY "Profiles are viewable by everyone" ON profiles FOR SELECT USING (true);
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
 
-CREATE POLICY "Users can update own profile"
-  ON profiles FOR UPDATE
-  USING (auth.uid() = id);
+-- Listings
+CREATE POLICY "Active listings are viewable by everyone" ON listings FOR SELECT USING (true);
+CREATE POLICY "Sellers can insert own listings" ON listings FOR INSERT WITH CHECK (auth.uid() = seller_id);
+CREATE POLICY "Sellers can update own listings" ON listings FOR UPDATE USING (auth.uid() = seller_id);
+CREATE POLICY "Sellers can delete own listings" ON listings FOR DELETE USING (auth.uid() = seller_id);
 
--- LISTINGS POLICIES
-CREATE POLICY "Listings are viewable by everyone"
-  ON listings FOR SELECT
-  USING (true);
+-- Orders
+CREATE POLICY "Users can view own orders" ON orders FOR SELECT USING (auth.uid() = buyer_id OR auth.uid() = seller_id OR auth.uid() = transporter_id);
+CREATE POLICY "Buyers can create orders" ON orders FOR INSERT WITH CHECK (auth.uid() = buyer_id);
+CREATE POLICY "Participants can update orders" ON orders FOR UPDATE USING (auth.uid() = buyer_id OR auth.uid() = seller_id);
 
-CREATE POLICY "Farmers can create listings"
-  ON listings FOR INSERT
-  WITH CHECK (auth.uid() = seller_id AND (SELECT role FROM profiles WHERE id = auth.uid()) = 'farmer');
+-- Conversations
+CREATE POLICY "Users can view own conversations" ON conversations FOR SELECT USING (auth.uid() = ANY(participant_ids));
+CREATE POLICY "Users can create conversations" ON conversations FOR INSERT WITH CHECK (auth.uid() = ANY(participant_ids));
+CREATE POLICY "Participants can update conversations" ON conversations FOR UPDATE USING (auth.uid() = ANY(participant_ids));
 
-CREATE POLICY "Farmers can update own listings"
-  ON listings FOR UPDATE
-  USING (auth.uid() = seller_id);
+-- Messages
+CREATE POLICY "Users can view messages in their conversations" ON messages FOR SELECT USING (
+  EXISTS (SELECT 1 FROM conversations WHERE conversations.id = messages.conversation_id AND auth.uid() = ANY(conversations.participant_ids))
+);
+CREATE POLICY "Users can send messages" ON messages FOR INSERT WITH CHECK (auth.uid() = sender_id);
+CREATE POLICY "Users can mark messages read" ON messages FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM conversations WHERE conversations.id = messages.conversation_id AND auth.uid() = ANY(conversations.participant_ids))
+);
 
-CREATE POLICY "Farmers can delete own listings"
-  ON listings FOR DELETE
-  USING (auth.uid() = seller_id);
+-- Reviews
+CREATE POLICY "Reviews are viewable by everyone" ON reviews FOR SELECT USING (true);
+CREATE POLICY "Authenticated users can write reviews" ON reviews FOR INSERT WITH CHECK (auth.uid() = reviewer_id);
 
--- ORDERS POLICIES
-CREATE POLICY "Users can view own orders"
-  ON orders FOR SELECT
-  USING (auth.uid() = buyer_id OR auth.uid() = seller_id OR (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
+-- Notifications
+CREATE POLICY "Users can view own notifications" ON notifications FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "System can create notifications" ON notifications FOR INSERT WITH CHECK (true);
+CREATE POLICY "Users can update own notifications" ON notifications FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own notifications" ON notifications FOR DELETE USING (auth.uid() = user_id);
 
-CREATE POLICY "Buyers can create orders"
-  ON orders FOR INSERT
-  WITH CHECK (auth.uid() = buyer_id);
+-- Wallets
+CREATE POLICY "Users can view own wallet" ON wallets FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "System can manage wallets" ON wallets FOR ALL USING (true);
 
-CREATE POLICY "Order participants can update"
-  ON orders FOR UPDATE
-  USING (auth.uid() = buyer_id OR auth.uid() = seller_id OR (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
+-- Wallet transactions
+CREATE POLICY "Users can view own transactions" ON wallet_transactions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "System can create transactions" ON wallet_transactions FOR INSERT WITH CHECK (true);
 
--- WALLETS POLICIES
-CREATE POLICY "Users can view own wallet"
-  ON wallets FOR SELECT
-  USING (auth.uid() = user_id OR (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
+-- Vehicles
+CREATE POLICY "Vehicles are viewable by everyone" ON vehicles FOR SELECT USING (true);
+CREATE POLICY "Owners can manage vehicles" ON vehicles FOR INSERT WITH CHECK (auth.uid() = owner_id);
+CREATE POLICY "Owners can update vehicles" ON vehicles FOR UPDATE USING (auth.uid() = owner_id);
+CREATE POLICY "Owners can delete vehicles" ON vehicles FOR DELETE USING (auth.uid() = owner_id);
 
-CREATE POLICY "Users can update own wallet"
-  ON wallets FOR UPDATE
-  USING (auth.uid() = user_id);
+-- Transport requests
+CREATE POLICY "Transport requests viewable by participants" ON transport_requests FOR SELECT USING (true);
+CREATE POLICY "Users can create transport requests" ON transport_requests FOR INSERT WITH CHECK (true);
+CREATE POLICY "Users can update transport requests" ON transport_requests FOR UPDATE USING (true);
 
--- WALLET TRANSACTIONS POLICIES
-CREATE POLICY "Users can view own transactions"
-  ON wallet_transactions FOR SELECT
-  USING (auth.uid() = user_id OR (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
-
-CREATE POLICY "Users can create own transactions"
-  ON wallet_transactions FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
--- DISPUTES POLICIES
-CREATE POLICY "Users can view relevant disputes"
-  ON disputes FOR SELECT
-  USING (
-    auth.uid() = raised_by OR 
-    auth.uid() IN (SELECT buyer_id FROM orders WHERE id = order_id) OR
-    auth.uid() IN (SELECT seller_id FROM orders WHERE id = order_id) OR
-    (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin'
-  );
-
-CREATE POLICY "Users can create disputes for own orders"
-  ON disputes FOR INSERT
-  WITH CHECK (
-    auth.uid() IN (SELECT buyer_id FROM orders WHERE id = order_id) OR
-    auth.uid() IN (SELECT seller_id FROM orders WHERE id = order_id)
-  );
-
-CREATE POLICY "Admins can update disputes"
-  ON disputes FOR UPDATE
-  USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
-
--- MESSAGES POLICIES
-CREATE POLICY "Users can view own messages"
-  ON messages FOR SELECT
-  USING (auth.uid() = sender_id OR auth.uid() = recipient_id);
-
-CREATE POLICY "Users can send messages"
-  ON messages FOR INSERT
-  WITH CHECK (auth.uid() = sender_id);
-
-CREATE POLICY "Recipients can update messages"
-  ON messages FOR UPDATE
-  USING (auth.uid() = recipient_id);
-
--- REVIEWS POLICIES
-CREATE POLICY "Reviews are viewable by everyone"
-  ON reviews FOR SELECT
-  USING (true);
-
-CREATE POLICY "Users can create reviews"
-  ON reviews FOR INSERT
-  WITH CHECK (auth.uid() = reviewer_id);
-
--- VEHICLES POLICIES
-CREATE POLICY "Vehicles are viewable by everyone"
-  ON vehicles FOR SELECT
-  USING (true);
-
-CREATE POLICY "Transporters can manage own vehicles"
-  ON vehicles FOR ALL
-  USING (auth.uid() = owner_id AND (SELECT role FROM profiles WHERE id = auth.uid()) = 'transporter');
-
--- TRANSPORT REQUESTS POLICIES
-CREATE POLICY "Users can view relevant transport requests"
-  ON transport_requests FOR SELECT
-  USING (
-    auth.uid() = requester_id OR 
-    auth.uid() = transporter_id OR 
-    (SELECT role FROM profiles WHERE id = auth.uid()) IN ('transporter', 'admin')
-  );
-
-CREATE POLICY "Users can create transport requests"
-  ON transport_requests FOR INSERT
-  WITH CHECK (auth.uid() = requester_id);
-
-CREATE POLICY "Request participants can update"
-  ON transport_requests FOR UPDATE
-  USING (auth.uid() = requester_id OR auth.uid() = transporter_id);
-
--- NOTIFICATIONS POLICIES
-CREATE POLICY "Users can view own notifications"
-  ON notifications FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own notifications"
-  ON notifications FOR UPDATE
-  USING (auth.uid() = user_id);
+-- Disputes
+CREATE POLICY "Disputes viewable by participants" ON disputes FOR SELECT USING (auth.uid() = raised_by_id OR auth.uid() = against_id);
+CREATE POLICY "Users can create disputes" ON disputes FOR INSERT WITH CHECK (auth.uid() = raised_by_id);
+CREATE POLICY "Admins can update disputes" ON disputes FOR UPDATE USING (true);
 
 -- ============================================
--- STORAGE BUCKETS
+-- REALTIME (enable for chat & notifications)
 -- ============================================
-INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true);
-INSERT INTO storage.buckets (id, name, public) VALUES ('listings', 'listings', true);
-INSERT INTO storage.buckets (id, name, public) VALUES ('vehicles', 'vehicles', true);
-
--- Storage policies
-CREATE POLICY "Avatar images are publicly accessible"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'avatars');
-
-CREATE POLICY "Users can upload own avatars"
-  ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
-
-CREATE POLICY "Listing images are publicly accessible"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'listings');
-
-CREATE POLICY "Users can upload listing images"
-  ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'listings' AND auth.uid()::text = (storage.foldername(name))[1]);
-
-CREATE POLICY "Vehicle images are publicly accessible"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'vehicles');
-
-CREATE POLICY "Users can upload vehicle images"
-  ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'vehicles' AND auth.uid()::text = (storage.foldername(name))[1]);
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+ALTER PUBLICATION supabase_realtime ADD TABLE orders;
+ALTER PUBLICATION supabase_realtime ADD TABLE conversations;

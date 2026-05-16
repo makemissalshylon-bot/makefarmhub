@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:analyze": "ANALYZE=true vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -25,9 +26,12 @@
     "test:perf:stress": "k6 run tests/performance/k6/stress-test.js",
     "test:perf:spike": "k6 run tests/performance/k6/spike-test.js",
     "test:perf:payment": "k6 run tests/performance/k6/payment-api-test.js",
+    "test:lighthouse": "lhci autorun",
     "test:security:headers": "k6 run tests/security/header-check.js",
     "test:security:injection": "k6 run tests/security/input-validation-test.js",
-    "audit": "npm audit --audit-level=high"
+    "audit": "npm audit --audit-level=high",
+    "perf:report": "node scripts/performance-report.js",
+    "optimize:images": "node scripts/optimize-images.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

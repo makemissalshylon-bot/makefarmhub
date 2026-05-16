@@ -343,48 +343,45 @@ class PaymentService {
 
   /**
    * Get payment methods for user
+   * @deprecated Use Supabase wallet_transactions and stored payment preferences instead
    */
   getPaymentMethods(userId: string): PaymentMethod[] {
-    // In production, fetch from backend
-    const stored = localStorage.getItem(`payment_methods_${userId}`);
-    return stored ? JSON.parse(stored) : [];
+    console.warn('paymentService.getPaymentMethods is deprecated - use Supabase wallet service');
+    // Payment methods should be stored in Supabase, not localStorage
+    // For now, return empty array to force users to select payment method each time
+    return [];
   }
 
   /**
    * Add payment method
+   * @deprecated Payment methods should be stored in Supabase user preferences
    */
   async addPaymentMethod(userId: string, method: Omit<PaymentMethod, 'id'>): Promise<PaymentMethod> {
-    const paymentMethod: PaymentMethod = {
+    console.warn('paymentService.addPaymentMethod is deprecated - implement in Supabase');
+    // In production, this should call Supabase to store payment preferences
+    // For now, just return the method with an ID
+    return {
       ...method,
       id: this.generateId(),
     };
-
-    const methods = this.getPaymentMethods(userId);
-    methods.push(paymentMethod);
-    localStorage.setItem(`payment_methods_${userId}`, JSON.stringify(methods));
-
-    return paymentMethod;
   }
 
   /**
    * Remove payment method
+   * @deprecated Payment methods should be stored in Supabase user preferences
    */
   async removePaymentMethod(userId: string, methodId: string): Promise<void> {
-    const methods = this.getPaymentMethods(userId);
-    const filtered = methods.filter(m => m.id !== methodId);
-    localStorage.setItem(`payment_methods_${userId}`, JSON.stringify(filtered));
+    console.warn('paymentService.removePaymentMethod is deprecated - implement in Supabase');
+    // In production, call Supabase to remove payment method preference
   }
 
   /**
    * Set default payment method
+   * @deprecated Payment methods should be stored in Supabase user preferences
    */
   async setDefaultPaymentMethod(userId: string, methodId: string): Promise<void> {
-    const methods = this.getPaymentMethods(userId);
-    const updated = methods.map(m => ({
-      ...m,
-      isDefault: m.id === methodId,
-    }));
-    localStorage.setItem(`payment_methods_${userId}`, JSON.stringify(updated));
+    console.warn('paymentService.setDefaultPaymentMethod is deprecated - implement in Supabase');
+    // In production, call Supabase to update default payment method
   }
 
   /**
@@ -439,12 +436,14 @@ class PaymentService {
 
   /**
    * Get transaction history
+   * @deprecated Use Supabase walletService.getTransactions() instead
    */
   getTransactionHistory(userId: string, limit: number = 50): Transaction[] {
-    // In production, fetch from backend
-    const stored = localStorage.getItem(`transactions_${userId}`);
-    const transactions = stored ? JSON.parse(stored) : [];
-    return transactions.slice(0, limit);
+    console.warn('paymentService.getTransactionHistory is deprecated - use walletService.getTransactions()');
+    // Transaction history is stored in Supabase wallet_transactions table
+    // Use: import { walletService } from '@/services/supabase';
+    //      const transactions = await walletService.getTransactions(userId);
+    return [];
   }
 }
 

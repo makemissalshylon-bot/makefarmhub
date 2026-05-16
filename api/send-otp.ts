@@ -17,11 +17,11 @@ function createToken(identifier: string, otp: string): string {
   return token;
 }
 
-async function sendOTPEmail(email: string, otp: string, name?: string): Promise<boolean> {
+async function sendOTPEmail(email: string, otp: string, name?: string): Promise<{ success: boolean; devOTP?: string }> {
   const sendgridKey = process.env.SENDGRID_API_KEY;
   if (!sendgridKey) {
     console.log(`[DEV] OTP for ${email}: ${otp}`);
-    return true; // In dev mode without SendGrid, just log
+    return { success: true, devOTP: otp }; // Return OTP for dev mode
   }
 
   // Use verified sender email from env, or fall back to default
@@ -65,17 +65,17 @@ async function sendOTPEmail(email: string, otp: string, name?: string): Promise<
     if (!response.ok) {
       const errBody = await response.text();
       console.error(`[EMAIL] SendGrid error (${response.status}):`, errBody);
-      return false;
+      return { success: false };
     }
     console.log(`[EMAIL] Successfully sent OTP to ${email}`);
-    return true;
+    return { success: true };
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       console.error('[EMAIL] SendGrid timeout - request took too long');
     } else {
       console.error('[EMAIL] SendGrid error:', error instanceof Error ? error.message : error);
     }
-    return false;
+    return { success: false };
   }
 }
 
@@ -230,11 +230,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = createToken(identifier, otp);
 
   // Send OTP via email if email is provided
+  let devOTP: string | undefined;
   if (email) {
-    const sent = await sendOTPEmail(email, otp, name);
-    if (!sent) {
+    const result = await sendOTPEmail(email, otp, name);
+    if (!result.success) {
       return res.status(500).json({ error: 'Failed to send verification email. Please try again.' });
     }
+    devOTP = result.devOTP; // Will be set if SendGrid is not configured
   }
 
   // Send OTP via SMS if phone is provided (using Africa's Talking)
@@ -244,6 +246,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Only fail if SMS was the sole delivery method
       return res.status(500).json({ error: 'Failed to send verification SMS. Please try again.' });
     }
+    // In dev mode without SMS, show OTP
+    if (!sent) {
+      devOTP = otp;
+    }
   }
 
   return res.status(200).json({
@@ -252,5 +258,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     message: email
       ? `Verification code sent to ${email}`
       : `Verification code sent to ${phone}`,
+    ...(devOTP && { devOTP }), // Include devOTP in response if available
   });
 }

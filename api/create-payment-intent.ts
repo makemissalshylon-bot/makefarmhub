@@ -1,11 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
+import { withSecurityHeaders } from './_middleware/securityHeaders';
+import { withRateLimit } from './_middleware/rateLimit';
+import { withValidation, validators } from './_middleware/validateInput';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
+const handler = async (req: VercelRequest, res: VercelResponse) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -49,4 +48,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       error: error.message || 'Failed to create payment intent',
     });
   }
-}
+};
+
+// Apply middleware: rate limiting (10 requests/minute), validation, security headers
+export default withSecurityHeaders(
+  withRateLimit(
+    withValidation(handler, {
+      amount: validators.positiveNumber,
+      orderId: validators.required,
+      customerEmail: validators.optional(validators.email),
+    }),
+    { windowMs: 60000, maxRequests: 10 }
+  )
+);

@@ -1,0 +1,15 @@
+@echo off
+echo Creating .env file...
+
+(
+echo VITE_SUPABASE_URL=https://ruwetugllnjljjavbepikz.supabase.co
+echo VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1d2V0dWdsbmpsamF2YmVwaWt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NDI2NjYsImV4cCI6MjA5NDQxODY2Nn0.krV7nb4DPolTSp_hMCnzWleTO3qvls3fwYGEgtsrHvQ
+echo SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1d2V0dWdsbmpsamF2YmVwaWt6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODg0MjY2NiwiZXhwIjoyMDk0NDE4NjY2fQ.6Udc1cXLslZmvxxgVSFrEg3lLoAcEur_f2IRIJz6les
+) > .env
+
+echo.
+echo .env file created successfully!
+echo.
+echo Now run: npm run dev
+echo.
+pause

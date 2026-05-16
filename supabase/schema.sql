@@ -16,6 +16,9 @@ CREATE TABLE IF NOT EXISTS profiles (
   avatar TEXT,
   location TEXT DEFAULT '',
   verified BOOLEAN DEFAULT false,
+  bio TEXT,
+  rating DECIMAL(3,2) DEFAULT 0,
+  total_reviews INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -51,7 +54,7 @@ CREATE TABLE IF NOT EXISTS listings (
   seller_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   description TEXT DEFAULT '',
-  category TEXT NOT NULL CHECK (category IN ('crops', 'livestock', 'equipment')),
+  category TEXT NOT NULL CHECK (category IN ('crops', 'livestock', 'equipment', 'seeds', 'fertilizers', 'other')),
   subcategory TEXT DEFAULT '',
   price NUMERIC(12,2) NOT NULL DEFAULT 0,
   unit TEXT DEFAULT 'kg',
@@ -194,6 +197,7 @@ CREATE TABLE IF NOT EXISTS wallet_transactions (
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
   description TEXT DEFAULT '',
   reference TEXT DEFAULT '',
+  metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -257,6 +261,45 @@ CREATE TABLE IF NOT EXISTS disputes (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   resolved_at TIMESTAMPTZ
 );
+
+-- ============================================
+-- TRIGGERS
+-- ============================================
+
+-- Trigger function: update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Apply updated_at triggers
+CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_listings_updated_at BEFORE UPDATE ON listings
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_transport_requests_updated_at BEFORE UPDATE ON transport_requests
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger function: update profile rating on new review
+CREATE OR REPLACE FUNCTION update_profile_rating()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE profiles
+  SET rating = (SELECT COALESCE(AVG(rating), 0) FROM reviews WHERE target_id = NEW.target_id),
+      total_reviews = (SELECT COUNT(*) FROM reviews WHERE target_id = NEW.target_id)
+  WHERE id = NEW.target_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_rating_on_review ON reviews;
+CREATE TRIGGER update_rating_on_review AFTER INSERT ON reviews
+  FOR EACH ROW EXECUTE FUNCTION update_profile_rating();
 
 -- ============================================
 -- ROW LEVEL SECURITY (RLS)
