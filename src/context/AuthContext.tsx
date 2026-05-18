@@ -248,7 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Always use custom OTP API for faster delivery via SendGrid
     try {
       const isEmail = identifier.includes('@');
-      const response = await fetch(`${API_BASE}/api/send-otp`, {
+      const response = await fetch(`${API_BASE}/api/otp?action=send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
