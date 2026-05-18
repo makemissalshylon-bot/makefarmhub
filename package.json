@@ -1,7 +1,7 @@
 {
   "name": "makefarmhub",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "MAKEFARMHUB - Digital Agriculture Marketplace connecting farmers, buyers, and transporters in Zimbabwe",
   "author": {
     "name": "Missal S Make",
@@ -57,6 +57,7 @@
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
     "africastalking": "^0.6.1",
+    "babel-plugin-transform-react-remove-prop-types": "^0.4.24",
     "lucide-react": "^0.555.0",
     "qrcode": "^1.5.3",
     "react": "^19.2.0",
