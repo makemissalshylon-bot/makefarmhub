@@ -1,44 +1,8 @@
-/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { visualizer } from 'rollup-plugin-visualizer';
-import { compression } from 'vite-plugin-compression2';
 
 export default defineConfig({
-  plugins: [
-    react({
-      babel: {
-        plugins: [
-          // Remove PropTypes in production
-          ['babel-plugin-transform-react-remove-prop-types', { removeImport: true }],
-        ],
-      },
-    }),
-    // Gzip compression
-    compression({
-      algorithm: 'gzip',
-      exclude: [/\.(br)$/, /\.(gz)$/],
-    }),
-    // Brotli compression
-    compression({
-      algorithm: 'brotliCompress',
-      exclude: [/\.(br)$/, /\.(gz)$/],
-    }),
-    // Bundle analyzer (only in analyze mode)
-    process.env.ANALYZE && visualizer({
-      open: true,
-      filename: 'dist/stats.html',
-      gzipSize: true,
-      brotliSize: true,
-    }),
-  ].filter(Boolean),
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: './src/test/setup.ts',
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
-    css: true,
-  },
+  plugins: [react()],
   build: {
     rollupOptions: {
       output: {

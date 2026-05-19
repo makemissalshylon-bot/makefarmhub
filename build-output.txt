@@ -1,0 +1,71 @@
+﻿
+> makefarmhub@1.0.2 build
+> vite build
+
+[36mvite v7.2.2 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32mΓ£ô[39m 2082 modules transformed.
+node.exe : [31mΓ£ù[39m Build failed in 1m 32s
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([31mΓ£ù[39m Build failed in 1m 32s:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+dist/manifest.json.gz                       0.51 kB
+dist/sitemap.xml.gz                         0.28 kB
+dist/sw.js.gz                               2.06 kB
+dist/vite.svg.gz                            0.78 kB
+dist/icons/amex.svg.gz                      0.22 kB
+dist/icons/badge-72x72.svg.gz               0.22 kB
+dist/icons/default.svg.gz                   0.18 kB
+dist/icons/discover.svg.gz                  0.21 kB
+dist/icons/icon-192x192.svg.gz              0.26 kB
+dist/icons/icon-512x512.svg.gz              0.28 kB
+dist/icons/info.svg.gz                      0.22 kB
+dist/icons/mastercard.svg.gz                0.18 kB
+dist/icons/message.svg.gz                   0.20 kB
+dist/icons/order.svg.gz                     0.20 kB
+dist/icons/payment.svg.gz                   0.18 kB
+dist/icons/success.svg.gz                   0.19 kB
+dist/icons/system.svg.gz                    0.19 kB
+dist/icons/visa.svg.gz                      0.22 kB
+dist/icons/warning.svg.gz                   0.23 kB
+dist/icons/mobile-money/ecocash.svg.gz      0.22 kB
+dist/icons/mobile-money/innbucks.svg.gz     0.22 kB
+dist/icons/mobile-money/onemoney.svg.gz     0.22 kB
+dist/icons/mobile-money/telecash.svg.gz     0.22 kB
+dist/manifest.json.br                       0.39 kB
+dist/sitemap.xml.br                         0.21 kB
+dist/sw.js.br                               1.76 kB
+dist/vite.svg.br                            0.67 kB
+dist/icons/amex.svg.br                      0.18 kB
+dist/icons/badge-72x72.svg.br               0.16 kB
+dist/icons/default.svg.br                   0.16 kB
+dist/icons/discover.svg.br                  0.19 kB
+dist/icons/icon-192x192.svg.br              0.20 kB
+dist/icons/icon-512x512.svg.br              0.23 kB
+dist/icons/info.svg.br                      0.19 kB
+dist/icons/mastercard.svg.br                0.16 kB
+dist/icons/message.svg.br                   0.19 kB
+dist/icons/order.svg.br                     0.19 kB
+dist/icons/payment.svg.br                   0.16 kB
+dist/icons/success.svg.br                   0.17 kB
+dist/icons/system.svg.br                    0.18 kB
+dist/icons/visa.svg.br                      0.17 kB
+dist/icons/warning.svg.br                   0.20 kB
+dist/icons/mobile-money/ecocash.svg.br      0.17 kB
+dist/icons/mobile-money/innbucks.svg.br     0.17 kB
+dist/icons/mobile-money/onemoney.svg.br     0.16 kB
+dist/icons/mobile-money/telecash.svg.br     0.17 kB
+[31merror during build:
+[31m[vite:terser] terser not found. Since Vite v3, terser has become an optional dependency. You need to install 
+it.[31m
+    at loadTerserPath 
+(file:///C:/Users/l/Documents/website/MAKEFARMHUB/node_modules/vite/dist/node/chunks/config.js:33593:8)
+    at Object.renderChunk 
+(file:///C:/Users/l/Documents/website/MAKEFARMHUB/node_modules/vite/dist/node/chunks/config.js:33622:39)
+    at Object.handler 
+(file:///C:/Users/l/Documents/website/MAKEFARMHUB/node_modules/vite/dist/node/chunks/config.js:34362:13)
+    at file:///C:/Users/l/Documents/website/MAKEFARMHUB/node_modules/rollup/dist/es/shared/node-entry.js:22437:40
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
