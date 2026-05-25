@@ -2,6 +2,13 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
+// Enable body parsing for Vercel serverless function
+export const config = {
+  api: {
+    bodyParser: true,
+  },
+};
+
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
@@ -115,6 +122,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Validate request body exists
+  if (!req.body) {
+    console.error('[OTP] No request body');
+    return res.status(400).json({ error: 'Request body is required' });
+  }
+
   try {
     switch (action) {
       case 'send':
@@ -124,9 +137,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       default:
         return handleSendOTP(req, res);
     }
-  } catch (error) {
-    console.error('[OTP] Error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+  } catch (error: any) {
+    console.error('[OTP] Handler error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
   }
 }
 
