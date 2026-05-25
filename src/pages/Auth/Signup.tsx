@@ -44,6 +44,7 @@ export default function Signup() {
     location: '',
     password: '',
   });
+  const [otpMethod, setOtpMethod] = useState<'email' | 'sms'>('sms');
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -81,18 +82,27 @@ export default function Signup() {
       setError('Password must be at least 6 characters');
       return;
     }
-    if (!formData.email) {
-      setError('Email is required for verification');
+    
+    // Validate based on chosen OTP method
+    if (otpMethod === 'email' && !formData.email) {
+      setError('Email is required when using Email verification');
       return;
     }
+    if (otpMethod === 'sms' && !formData.phone) {
+      setError('Phone number is required when using SMS verification');
+      return;
+    }
+    
     setIsLoading(true);
     setError('');
 
-    // Send real OTP to email
-    const result = await sendOTP(formData.email, formData.name);
+    // Send OTP to selected method (email or phone)
+    const identifier = otpMethod === 'email' ? formData.email : formData.phone;
+    const result = await sendOTP(identifier, formData.name);
 
     if (result.success && result.token) {
       setOtpToken(result.token);
+      setDevOTP(result.devOTP);
       setStep('otp');
       startResendCooldown();
     } else {
@@ -106,11 +116,12 @@ export default function Signup() {
     setError('');
     setIsLoading(true);
 
-    const result = await sendOTP(formData.email, formData.name);
+    const identifier = otpMethod === 'email' ? formData.email : formData.phone;
+    const result = await sendOTP(identifier, formData.name);
 
     if (result.success && result.token) {
       setOtpToken(result.token);
-      setDevOTP(result.devOTP); // Capture dev OTP if available
+      setDevOTP(result.devOTP);
       startResendCooldown();
     } else {
       setError(result.error || 'Failed to resend code');
@@ -234,16 +245,44 @@ export default function Signup() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="email">Email *</label>
+              <label htmlFor="email">Email {otpMethod === 'email' ? '*' : '(Optional)'}</label>
               <input
                 type="email"
                 id="email"
                 placeholder="your@email.com"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
+                required={otpMethod === 'email'}
               />
-              <span className="form-hint">Required for account verification</span>
+            </div>
+
+            <div className="form-group">
+              <label>Verification Method *</label>
+              <div style={{ display: 'flex', gap: '15px', marginTop: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, padding: '12px', border: '2px solid', borderColor: otpMethod === 'sms' ? '#10b981' : '#e5e7eb', borderRadius: '8px', background: otpMethod === 'sms' ? '#f0fdf4' : 'transparent' }}>
+                  <input
+                    type="radio"
+                    name="otpMethod"
+                    value="sms"
+                    checked={otpMethod === 'sms'}
+                    onChange={(e) => setOtpMethod(e.target.value as 'sms')}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ fontWeight: otpMethod === 'sms' ? '600' : '400' }}>📱 SMS (Phone)</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, padding: '12px', border: '2px solid', borderColor: otpMethod === 'email' ? '#10b981' : '#e5e7eb', borderRadius: '8px', background: otpMethod === 'email' ? '#f0fdf4' : 'transparent' }}>
+                  <input
+                    type="radio"
+                    name="otpMethod"
+                    value="email"
+                    checked={otpMethod === 'email'}
+                    onChange={(e) => setOtpMethod(e.target.value as 'email')}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ fontWeight: otpMethod === 'email' ? '600' : '400' }}>✉️ Email</span>
+                </label>
+              </div>
+              <span className="form-hint">Choose how you want to receive your verification code</span>
             </div>
 
             <div className="form-group">
@@ -302,8 +341,8 @@ export default function Signup() {
             </button>
 
             <div className="otp-message">
-              <p>We've sent a verification code to</p>
-              <strong>{formData.email}</strong>
+              <p>We've sent a verification code via {otpMethod === 'email' ? 'Email' : 'SMS'} to</p>
+              <strong>{otpMethod === 'email' ? formData.email : formData.phone}</strong>
             </div>
 
             {devOTP && (
