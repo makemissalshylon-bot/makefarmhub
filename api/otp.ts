@@ -131,11 +131,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 async function handleSendOTP(req: VercelRequest, res: VercelResponse) {
-  const { email, phone, name } = req.body;
+  try {
+    const { email, phone, name } = req.body;
 
-  if (!email && !phone) {
-    return res.status(400).json({ error: 'Email or phone number is required' });
-  }
+    if (!email && !phone) {
+      return res.status(400).json({ error: 'Email or phone number is required' });
+    }
 
   const otp = crypto.randomInt(100000, 999999).toString();
   const token = crypto.randomBytes(32).toString('hex');
@@ -194,14 +195,22 @@ async function handleSendOTP(req: VercelRequest, res: VercelResponse) {
       : `Verification code sent to ${phone}`,
     ...(devOTP && { devOTP }),
   });
+  } catch (error: any) {
+    console.error('[OTP] handleSendOTP error:', error);
+    return res.status(500).json({ 
+      error: 'Failed to send OTP', 
+      details: error.message || 'Unknown error' 
+    });
+  }
 }
 
 async function handleVerifyOTP(req: VercelRequest, res: VercelResponse) {
-  const { token, otp } = req.body;
+  try {
+    const { token, otp } = req.body;
 
-  if (!token || !otp) {
-    return res.status(400).json({ error: 'Token and OTP are required' });
-  }
+    if (!token || !otp) {
+      return res.status(400).json({ error: 'Token and OTP are required' });
+    }
 
   let record: OTPRecord | null = null;
 
@@ -255,4 +264,11 @@ async function handleVerifyOTP(req: VercelRequest, res: VercelResponse) {
     identifier: record.identifier,
     message: 'Verification successful',
   });
+  } catch (error: any) {
+    console.error('[OTP] handleVerifyOTP error:', error);
+    return res.status(500).json({ 
+      error: 'Failed to verify OTP', 
+      details: error.message || 'Unknown error' 
+    });
+  }
 }
