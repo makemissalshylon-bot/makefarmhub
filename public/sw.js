@@ -89,28 +89,39 @@ self.addEventListener('fetch', (event) => {
       .then((cached) => {
         if (cached) {
           // Return cached and update in background
-          fetch(request).then((response) => {
-            caches.open(RUNTIME_CACHE).then((cache) => {
-              cache.put(request, response);
+          fetch(request)
+            .then((response) => {
+              if (response && response.ok) {
+                caches.open(RUNTIME_CACHE).then((cache) => {
+                  cache.put(request, response);
+                });
+              }
+            })
+            .catch(() => {
+              // Silently ignore background fetch errors
             });
-          });
           return cached;
         }
 
         // Fetch and cache
-        return fetch(request).then((response) => {
-          // Don't cache non-successful responses
-          if (!response || response.status !== 200 || response.type === 'error') {
+        return fetch(request)
+          .then((response) => {
+            // Don't cache non-successful responses
+            if (!response || response.status !== 200 || response.type === 'error') {
+              return response;
+            }
+
+            const responseClone = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => {
+              cache.put(request, responseClone);
+            });
+
             return response;
-          }
-
-          const responseClone = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => {
-            cache.put(request, responseClone);
+          })
+          .catch((error) => {
+            // Return error response
+            return new Response('Network error', { status: 408, statusText: 'Request Timeout' });
           });
-
-          return response;
-        });
       })
   );
 });
