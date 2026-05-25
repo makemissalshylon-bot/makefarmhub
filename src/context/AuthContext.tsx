@@ -248,7 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Always use custom OTP API for faster delivery via SendGrid
     try {
       const isEmail = identifier.includes('@');
-      const response = await fetch(`${API_BASE}/api/otp?action=send`, {
+      const response = await fetch('/api/otp?action=send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -263,7 +263,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       return { success: true, token: data.token, devOTP: data.devOTP };
-    } catch {
+    } catch (err) {
+      console.error('OTP send error:', err);
       return { success: false, error: 'Network error. Please check your connection.' };
     }
   };
@@ -310,7 +311,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Fallback: custom OTP verification
     try {
-      const response = await fetch(`${API_BASE}/api/verify-otp`, {
+      const response = await fetch('/api/otp?action=verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, otp }),
@@ -349,7 +350,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = async (name: string, phone: string, email: string, role: UserRole, location: string, otp: string, token: string, password: string): Promise<{ success: boolean; error?: string }> => {
     // Step 1: Verify OTP via custom API
     try {
-      const verifyResponse = await fetch(`${API_BASE}/api/verify-otp`, {
+      const verifyResponse = await fetch('/api/otp?action=verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, otp }),
