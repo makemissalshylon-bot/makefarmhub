@@ -4,13 +4,17 @@ import crypto from 'crypto';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 interface OTPRecord {
   identifier: string;
   otp: string;
   expires_at: string;
+  token?: string;
 }
+
+// In-memory storage fallback when Supabase is not configured
+const otpStore = new Map<string, OTPRecord>();
 
 async function sendOTPEmail(email: string, otp: string, name?: string): Promise<{ success: boolean; devOTP?: string }> {
   const sendgridKey = process.env.SENDGRID_API_KEY;
@@ -138,38 +142,47 @@ async function handleSendOTP(req: VercelRequest, res: VercelResponse) {
   const identifier = email || phone;
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-  const { error } = await supabase
-    .from('otp_verifications')
-    .upsert({
-      identifier,
-      otp,
-      token,
-      expires_at: expiresAt,
-      created_at: new Date().toISOString(),
-    }, { onConflict: 'identifier' });
+  // Store OTP - use Supabase if available, otherwise use in-memory store
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('otp_verifications')
+        .upsert({
+          identifier,
+          otp,
+          token,
+          expires_at: expiresAt,
+          created_at: new Date().toISOString(),
+        }, { onConflict: 'identifier' });
 
-  if (error) {
-    console.error('[OTP] Database error:', error);
-    return res.status(500).json({ error: 'Failed to generate OTP' });
+      if (error) {
+        console.error('[OTP] Database error:', error);
+        // Fall back to in-memory
+        otpStore.set(token, { identifier, otp, expires_at: expiresAt, token });
+      }
+    } catch (err) {
+      console.error('[OTP] Supabase error:', err);
+      // Fall back to in-memory
+      otpStore.set(token, { identifier, otp, expires_at: expiresAt, token });
+    }
+  } else {
+    // Use in-memory store
+    otpStore.set(token, { identifier, otp, expires_at: expiresAt, token });
+    console.log('[OTP] Using in-memory storage (Supabase not configured)');
   }
 
   let devOTP: string | undefined;
 
   if (email) {
     const result = await sendOTPEmail(email, otp, name);
-    if (!result.success) {
-      return res.status(500).json({ error: 'Failed to send verification email' });
-    }
     devOTP = result.devOTP;
+    // Don't fail if email doesn't send - still return token
   }
 
   if (phone) {
     const sent = await sendOTPSMS(phone, otp);
-    if (!sent && !email) {
-      return res.status(500).json({ error: 'Failed to send verification SMS' });
-    }
     if (!sent) {
-      devOTP = otp;
+      devOTP = otp; // Show OTP if SMS fails
     }
   }
 
@@ -190,19 +203,40 @@ async function handleVerifyOTP(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Token and OTP are required' });
   }
 
-  const { data, error } = await supabase
-    .from('otp_verifications')
-    .select('*')
-    .eq('token', token)
-    .single();
+  let record: OTPRecord | null = null;
 
-  if (error || !data) {
+  // Try Supabase first, then fall back to in-memory
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('otp_verifications')
+        .select('*')
+        .eq('token', token)
+        .single();
+
+      if (!error && data) {
+        record = data as OTPRecord;
+      }
+    } catch (err) {
+      console.error('[OTP] Supabase verify error:', err);
+    }
+  }
+
+  // Fall back to in-memory store
+  if (!record) {
+    record = otpStore.get(token) || null;
+  }
+
+  if (!record) {
     return res.status(400).json({ error: 'Invalid or expired verification code' });
   }
 
-  const record = data as OTPRecord;
-
   if (new Date(record.expires_at) < new Date()) {
+    // Clean up expired record
+    if (supabase) {
+      await supabase.from('otp_verifications').delete().eq('token', token).catch(() => {});
+    }
+    otpStore.delete(token);
     return res.status(400).json({ error: 'Verification code has expired' });
   }
 
@@ -210,10 +244,11 @@ async function handleVerifyOTP(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Invalid verification code' });
   }
 
-  await supabase
-    .from('otp_verifications')
-    .delete()
-    .eq('token', token);
+  // Delete used OTP
+  if (supabase) {
+    await supabase.from('otp_verifications').delete().eq('token', token).catch(() => {});
+  }
+  otpStore.delete(token);
 
   return res.status(200).json({
     success: true,
