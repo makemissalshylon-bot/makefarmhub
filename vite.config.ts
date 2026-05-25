@@ -4,70 +4,8 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          // Vendor chunks
-          if (id.includes('node_modules/react-dom')) return 'vendor-react';
-          if (id.includes('node_modules/react/')) return 'vendor-react';
-          if (id.includes('node_modules/react-router')) return 'vendor-router';
-          if (id.includes('node_modules/lucide-react')) return 'vendor-icons';
-          if (id.includes('node_modules/@stripe')) return 'vendor-stripe';
-          if (id.includes('node_modules/@supabase')) return 'vendor-supabase';
-          
-          // App chunks
-          if (id.includes('/services/supabase/') || id.includes('/services/realtime') || id.includes('/services/payment') || id.includes('/services/notification') || id.includes('/services/moderation')) return 'app-services';
-          if (id.includes('/components/Admin/')) return 'admin';
-          if (id.includes('/components/Charts/')) return 'charts';
-          if (id.includes('/pages/Admin/')) return 'admin-pages';
-        },
-        // Optimize chunk names
-        chunkFileNames: 'assets/[name]-[hash].js',
-        entryFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]',
-      },
-    },
-    target: 'es2020',
+    target: 'es2015',
+    minify: 'esbuild',
     sourcemap: false,
-    cssCodeSplit: true,
-    chunkSizeWarningLimit: 500,
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true, // Remove console.log in production
-        drop_debugger: true,
-        pure_funcs: ['console.log', 'console.info', 'console.debug'],
-        passes: 2,
-      },
-      mangle: {
-        safari10: true,
-      },
-      format: {
-        comments: false,
-      },
-    },
-    reportCompressedSize: false, // Faster builds
-  },
-  optimizeDeps: {
-    include: [
-      'react',
-      'react-dom',
-      'react-router-dom',
-      '@supabase/supabase-js',
-    ],
-    exclude: ['@vite/client', '@vite/env'],
-  },
-  server: {
-    port: 5173,
-    open: true,
-    // Enable HTTP/2
-    https: false,
-    // Preload dependencies
-    preTransformRequests: true,
-  },
-  esbuild: {
-    // Remove console logs in production
-    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
-    legalComments: 'none',
   },
 });
