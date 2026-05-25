@@ -9,9 +9,22 @@ export const config = {
   },
 };
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+
+// Only create Supabase client if we have valid credentials
+let supabase: any = null;
+try {
+  if (supabaseUrl && supabaseKey && (supabaseUrl.startsWith('http://') || supabaseUrl.startsWith('https://'))) {
+    supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('[OTP] Supabase client initialized');
+  } else {
+    console.log('[OTP] Supabase not configured - using in-memory storage');
+  }
+} catch (err) {
+  console.error('[OTP] Failed to initialize Supabase client:', err);
+  supabase = null;
+}
 
 interface OTPRecord {
   identifier: string;
