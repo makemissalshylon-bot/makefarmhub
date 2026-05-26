@@ -173,63 +173,63 @@ async function handleSendOTP(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Email or phone number is required' });
     }
 
-  const otp = crypto.randomInt(100000, 999999).toString();
-  const token = crypto.randomBytes(32).toString('hex');
-  const identifier = email || phone;
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const token = crypto.randomBytes(32).toString('hex');
+    const identifier = email || phone;
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-  // Store OTP - use Supabase if available, otherwise use in-memory store
-  if (supabase) {
-    try {
-      const { error } = await supabase
-        .from('otp_verifications')
-        .upsert({
-          identifier,
-          otp,
-          token,
-          expires_at: expiresAt,
-          created_at: new Date().toISOString(),
-        }, { onConflict: 'identifier' });
+    // Store OTP - use Supabase if available, otherwise use in-memory store
+    if (supabase) {
+      try {
+        const { error } = await supabase
+          .from('otp_verifications')
+          .upsert({
+            identifier,
+            otp,
+            token,
+            expires_at: expiresAt,
+            created_at: new Date().toISOString(),
+          }, { onConflict: 'identifier' });
 
-      if (error) {
-        console.error('[OTP] Database error:', error);
+        if (error) {
+          console.error('[OTP] Database error:', error);
+          // Fall back to in-memory
+          otpStore.set(token, { identifier, otp, expires_at: expiresAt, token });
+        }
+      } catch (err) {
+        console.error('[OTP] Supabase error:', err);
         // Fall back to in-memory
         otpStore.set(token, { identifier, otp, expires_at: expiresAt, token });
       }
-    } catch (err) {
-      console.error('[OTP] Supabase error:', err);
-      // Fall back to in-memory
+    } else {
+      // Use in-memory store
       otpStore.set(token, { identifier, otp, expires_at: expiresAt, token });
+      console.log('[OTP] Using in-memory storage (Supabase not configured)');
     }
-  } else {
-    // Use in-memory store
-    otpStore.set(token, { identifier, otp, expires_at: expiresAt, token });
-    console.log('[OTP] Using in-memory storage (Supabase not configured)');
-  }
 
-  let devOTP: string | undefined;
-
-  if (email) {
-    const result = await sendOTPEmail(email, otp, name);
-    devOTP = result.devOTP;
-    // Don't fail if email doesn't send - still return token
-  }
-
-  if (phone) {
-    const sent = await sendOTPSMS(phone, otp);
-    if (!sent) {
-      devOTP = otp; // Show OTP if SMS fails
+    // Send email/SMS in background - don't wait (fire and forget for speed)
+    // This makes the API respond instantly instead of waiting 5-10 seconds
+    if (email) {
+      sendOTPEmail(email, otp, name).catch(err => 
+        console.error('[OTP] Background email send failed:', err)
+      );
     }
-  }
 
-  return res.status(200).json({
-    success: true,
-    token,
-    message: email
-      ? `Verification code sent to ${email}`
-      : `Verification code sent to ${phone}`,
-    ...(devOTP && { devOTP }),
-  });
+    if (phone) {
+      sendOTPSMS(phone, otp).catch(err => 
+        console.error('[OTP] Background SMS send failed:', err)
+      );
+    }
+
+    // Always return OTP for instant display (better UX than waiting for email/SMS)
+    return res.status(200).json({
+      success: true,
+      token,
+      message: email
+        ? `Verification code sent to ${email}`
+        : `Verification code sent to ${phone}`,
+      devOTP: otp, // Always show OTP on screen for instant access
+    });
   } catch (error: any) {
     console.error('[OTP] handleSendOTP error:', error);
     return res.status(500).json({ 
