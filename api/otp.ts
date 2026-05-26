@@ -37,50 +37,42 @@ interface OTPRecord {
 const otpStore = new Map<string, OTPRecord>();
 
 async function sendOTPEmail(email: string, otp: string, name?: string): Promise<{ success: boolean; devOTP?: string }> {
-  const sendgridKey = process.env.SENDGRID_API_KEY;
+  const resendKey = process.env.RESEND_API_KEY;
   
-  if (!sendgridKey) {
+  if (!resendKey) {
     console.log(`[DEV] OTP for ${email}: ${otp}`);
     return { success: true, devOTP: otp };
   }
 
   try {
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${sendgridKey}`,
+        'Authorization': `Bearer ${resendKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        personalizations: [{
-          to: [{ email }],
-          subject: 'Your MakeFarmHub Verification Code',
-        }],
-        from: {
-          email: process.env.SENDGRID_FROM_EMAIL || 'noreply@makefarmhub.com',
-          name: process.env.SENDGRID_FROM_NAME || 'MakeFarmHub',
-        },
-        content: [{
-          type: 'text/html',
-          value: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>Verify Your Account</h2>
-              <p>Hi ${name || 'there'},</p>
-              <p>Your verification code is:</p>
-              <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #22c55e;">
-                ${otp}
-              </div>
-              <p style="color: #6b7280; font-size: 14px;">This code expires in 10 minutes.</p>
-              <p>If you didn't request this code, please ignore this email.</p>
+        from: 'MakeFarmHub <onboarding@resend.dev>',
+        to: [email],
+        subject: 'Your MakeFarmHub Verification Code',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Verify Your Account</h2>
+            <p>Hi ${name || 'there'},</p>
+            <p>Your verification code is:</p>
+            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #22c55e;">
+              ${otp}
             </div>
-          `,
-        }],
+            <p style="color: #6b7280; font-size: 14px;">This code expires in 10 minutes.</p>
+            <p>If you didn't request this code, please ignore this email.</p>
+          </div>
+        `,
       }),
     });
 
     if (!response.ok) {
       const errBody = await response.text();
-      console.error(`[EMAIL] SendGrid error (${response.status}):`, errBody);
+      console.error(`[EMAIL] Resend error (${response.status}):`, errBody);
       return { success: false };
     }
 
@@ -102,14 +94,28 @@ async function sendOTPSMS(phone: string, otp: string): Promise<boolean> {
   }
 
   try {
-    const africastalking = await import('africastalking');
-    const client = africastalking.default({ apiKey, username });
-    
-    const result = await client.SMS.send({
-      to: [phone],
-      message: `Your MakeFarmHub verification code is: ${otp}. Valid for 10 minutes.`,
+    // Use Africa's Talking REST API directly instead of SDK to avoid import issues
+    const response = await fetch('https://api.africastalking.com/version1/messaging', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'apiKey': apiKey,
+      },
+      body: new URLSearchParams({
+        username: username,
+        to: phone,
+        message: `Your MakeFarmHub verification code is: ${otp}. Valid for 10 minutes.`,
+      }),
     });
 
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('[SMS] Africa\'s Talking error:', errText);
+      return false;
+    }
+
+    const result = await response.json();
     console.log('[SMS] Sent successfully:', result);
     return true;
   } catch (error) {
