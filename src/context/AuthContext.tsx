@@ -127,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       subscription = data.subscription;
     } catch (err) {
-      console.warn('Failed to set up auth listener:', err);
+      if (import.meta.env.DEV) console.warn('Failed to set up auth listener:', err);
     }
 
     return () => { subscription?.unsubscribe(); };
@@ -214,7 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { success: true };
         }
       } catch (err: any) {
-        console.error('Login error:', err);
+        if (import.meta.env.DEV) console.error('Login error:', err);
         return { success: false, error: 'Connection error. Please check your internet and try again.' };
       }
     }
@@ -264,7 +264,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return { success: true, token: data.token, devOTP: data.devOTP };
     } catch (err) {
-      console.error('OTP send error:', err);
+      if (import.meta.env.DEV) console.error('OTP send error:', err);
       return { success: false, error: 'Network error. Please check your connection.' };
     }
   };
@@ -375,7 +375,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: authData, error: authError } = await supabase.auth.signUp(signUpPayload);
 
         if (authError) {
-          console.error('Supabase signup error:', authError.message);
+          if (import.meta.env.DEV) console.error('Supabase signup error:', authError.message);
           // If Supabase signup fails, fall through to local storage
         } else if (authData.user) {
           // Update profile
@@ -402,7 +402,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { success: true };
         }
       } catch (err) {
-        console.warn('Supabase signup failed, using local storage:', err);
+        if (import.meta.env.DEV) console.warn('Supabase signup failed, using local storage:', err);
       }
     }
 
@@ -433,7 +433,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     if (useSupabase) {
-      supabase.auth.signOut().catch(err => console.error('Supabase signout error:', err));
+      supabase.auth.signOut().catch(err => {
+        if (import.meta.env.DEV) console.error('Supabase signout error:', err);
+      });
     }
     setUser(null);
     localStorage.removeItem('makefarmhub_user');
@@ -446,7 +448,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const updatedUser = { ...user, role };
         setUser(updatedUser);
         localStorage.setItem('makefarmhub_user', JSON.stringify(updatedUser));
-        profileService.updateProfile(user.id, { role }).catch(err => console.error('Error updating role:', err));
+        profileService.updateProfile(user.id, { role }).catch(err => {
+          if (import.meta.env.DEV) console.error('Error updating role:', err);
+        });
       } else {
         const roleUser = role === 'admin' ? adminUser : { ...user, role };
         setUser(roleUser as User);
@@ -465,7 +469,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: updates.name,
           phone: updates.phone,
           location: updates.location,
-        }).catch(err => console.error('Error updating profile:', err));
+        }).catch(err => {
+          if (import.meta.env.DEV) console.error('Error updating profile:', err);
+        });
       }
     }
   };
@@ -477,7 +483,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('makefarmhub_user', JSON.stringify(updatedUser));
       if (useSupabase) {
         profileService.updateProfile(user.id, { avatar: avatarUrl })
-          .catch(err => console.error('Error updating avatar:', err));
+          .catch(err => {
+            if (import.meta.env.DEV) console.error('Error updating avatar:', err);
+          });
       }
     }
   };

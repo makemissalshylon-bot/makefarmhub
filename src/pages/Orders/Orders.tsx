@@ -36,6 +36,7 @@ export default function Orders() {
   const [selectedPayment, setSelectedPayment] = useState('ecocash');
   const [showChatModal, setShowChatModal] = useState(false);
   const [chatOrderId, setChatOrderId] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Get orders based on user role
   const myOrders = orders.filter((order) => {
@@ -46,33 +47,44 @@ export default function Orders() {
   });
 
   const handleExportOrders = () => {
-    // Generate CSV content
-    const headers = ['Order ID', 'Product', 'Status', 'Quantity', 'Unit Price', 'Total', 'Date', 'Delivery Address'];
-    const rows = myOrders.map(order => [
-      order.id,
-      order.listingTitle,
-      order.status,
-      order.quantity,
-      order.unitPrice,
-      order.totalPrice,
-      order.createdAt,
-      order.deliveryAddress
-    ]);
+    if (myOrders.length === 0) {
+      showToast('error', 'No orders to export');
+      return;
+    }
     
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
+    setIsExporting(true);
     
-    // Create and trigger download
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `makefarmhub-orders-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-    
-    showToast('success', 'Orders exported successfully!');
+    // Small delay to show loading state
+    setTimeout(() => {
+      // Generate CSV content
+      const headers = ['Order ID', 'Product', 'Status', 'Quantity', 'Unit Price', 'Total', 'Date', 'Delivery Address'];
+      const rows = myOrders.map(order => [
+        order.id,
+        order.listingTitle,
+        order.status,
+        order.quantity,
+        order.unitPrice,
+        order.totalPrice,
+        order.createdAt,
+        order.deliveryAddress
+      ]);
+      
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+      
+      // Create and trigger download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `makefarmhub-orders-${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      
+      showToast('success', `${myOrders.length} orders exported successfully!`);
+      setIsExporting(false);
+    }, 300);
   };
 
   // Helper function to get date in readable format

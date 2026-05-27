@@ -48,6 +48,8 @@ export default function Wallet() {
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [disputeOrderId, setDisputeOrderId] = useState<string | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
+  const [isDepositing, setIsDepositing] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   const [paymentMethods] = useState(() => {
     const stored = localStorage.getItem('makefarmhub_payment_methods');
@@ -88,7 +90,16 @@ export default function Wallet() {
 
   const handleDeposit = async () => {
     const amount = parseFloat(depositAmount);
-    if (isNaN(amount) || amount <= 0) { showToast('error', 'Please enter a valid amount'); return; }
+    if (isNaN(amount) || amount <= 0) { 
+      showToast('error', 'Please enter a valid amount greater than $0'); 
+      return; 
+    }
+    if (amount > 10000) {
+      showToast('error', 'Maximum deposit amount is $10,000');
+      return;
+    }
+    
+    setIsDepositing(true);
     try {
       if (user?.id && isSupabaseReady()) {
         await walletService.deposit(user.id, amount, selectedPaymentMethod);
@@ -99,13 +110,25 @@ export default function Wallet() {
       showToast('success', `$${amount.toFixed(2)} deposited via ${selectedPaymentMethod}`);
       setDepositAmount('');
       setShowDepositModal(false);
-    } catch (err: any) { showToast('error', err.message || 'Deposit failed'); }
+    } catch (error: any) {
+      showToast('error', error.message || 'Deposit failed. Please try again.');
+    } finally {
+      setIsDepositing(false);
+    }
   };
 
   const handleWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
-    if (isNaN(amount) || amount <= 0) { showToast('error', 'Please enter a valid amount'); return; }
-    if (amount > walletBalance) { showToast('error', 'Insufficient balance'); return; }
+    if (isNaN(amount) || amount <= 0) { 
+      showToast('error', 'Please enter a valid amount greater than $0'); 
+      return; 
+    }
+    if (amount > walletBalance) {
+      showToast('error', 'Insufficient balance');
+      return;
+    }
+    
+    setIsWithdrawing(true);
     try {
       if (user?.id && isSupabaseReady()) {
         await walletService.withdraw(user.id, amount, selectedPaymentMethod);
@@ -113,10 +136,14 @@ export default function Wallet() {
       } else {
         setWalletBalance(b => b - amount);
       }
-      showToast('success', `$${amount.toFixed(2)} withdrawal initiated to ${selectedPaymentMethod}`);
+      showToast('success', `$${amount.toFixed(2)} withdrawn to ${selectedPaymentMethod}`);
       setWithdrawAmount('');
       setShowWithdrawModal(false);
-    } catch (err: any) { showToast('error', err.message || 'Withdrawal failed'); }
+    } catch (error: any) {
+      showToast('error', error.message || 'Withdrawal failed. Please try again.');
+    } finally {
+      setIsWithdrawing(false);
+    }
   };
 
   const handleReleaseEscrow = async (orderId: string) => {

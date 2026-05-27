@@ -207,7 +207,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         }));
         setListings(mappedListings);
       } catch (err) {
-        console.warn('Failed to load listings from Supabase:', err);
+        if (import.meta.env.DEV) console.warn('Failed to load listings from Supabase:', err);
       }
 
       // Load orders
@@ -236,7 +236,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         }));
         setOrders(mappedOrders);
       } catch (err) {
-        console.warn('Failed to load orders from Supabase:', err);
+        if (import.meta.env.DEV) console.warn('Failed to load orders from Supabase:', err);
       }
 
       // Load conversations
@@ -258,7 +258,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         }));
         setConversations(mappedConvos);
       } catch (err) {
-        console.warn('Failed to load conversations from Supabase:', err);
+        if (import.meta.env.DEV) console.warn('Failed to load conversations from Supabase:', err);
       }
 
       // Load notifications
@@ -275,7 +275,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         }));
         setNotifications(mappedNotifs);
       } catch (err) {
-        console.warn('Failed to load notifications from Supabase:', err);
+        if (import.meta.env.DEV) console.warn('Failed to load notifications from Supabase:', err);
       }
 
       // Load wallet
@@ -312,7 +312,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           trips: v.trips,
         })));
       } catch (err) {
-        console.warn('Failed to load vehicles from Supabase:', err);
+        if (import.meta.env.DEV) console.warn('Failed to load vehicles from Supabase:', err);
       }
 
       try {
@@ -330,7 +330,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           currentLocation: t.current_location,
         })));
       } catch (err) {
-        console.warn('Failed to load transport requests from Supabase:', err);
+        if (import.meta.env.DEV) console.warn('Failed to load transport requests from Supabase:', err);
       }
     };
 
@@ -430,7 +430,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }).then((dbOrder: any) => {
         // Replace temp ID with real DB ID
         setOrders(prev => prev.map(o => o.id === newOrderId ? { ...o, id: dbOrder.id } : o));
-      }).catch(err => console.error('Error creating order:', err));
+      }).catch(err => {
+        if (import.meta.env.DEV) console.error('Error creating order:', err);
+      });
     }
     
     // Update seller stats when order is completed
@@ -455,7 +457,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       order.id === orderId ? { ...order, status } : order
     ));
     if (supabaseReady.current) {
-      orderService.updateStatus(orderId, status).catch(err => console.error('Error updating order:', err));
+      orderService.updateStatus(orderId, status).catch(err => {
+        if (import.meta.env.DEV) console.error('Error updating order:', err);
+      });
     }
   }, []);
 
@@ -492,7 +496,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         sender_id: senderId,
         sender_name: senderName,
         content,
-      }).catch(err => console.error('Error sending message:', err));
+      }).catch(err => {
+        if (import.meta.env.DEV) console.error('Error sending message:', err);
+      });
     }
   }, [user]);
 
@@ -515,7 +521,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         message: notification.message,
         type: notification.type as any,
         action_url: notification.actionUrl,
-      }).catch(err => console.error('Error creating notification:', err));
+      }).catch(err => {
+        if (import.meta.env.DEV) console.error('Error creating notification:', err);
+      });
     }
   }, [user]);
 
@@ -524,28 +532,36 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       n.id === id ? { ...n, read: true } : n
     ));
     if (supabaseReady.current) {
-      notificationService.markAsRead(id).catch(err => console.error('Error marking notification read:', err));
+      notificationService.markAsRead(id).catch(err => {
+        if (import.meta.env.DEV) console.error('Error marking notification read:', err);
+      });
     }
   }, []);
 
   const markAllNotificationsRead = useCallback(() => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     if (supabaseReady.current && user) {
-      notificationService.markAllAsRead(user.id).catch(err => console.error('Error marking all read:', err));
+      notificationService.markAllAsRead(user.id).catch(err => {
+        if (import.meta.env.DEV) console.error('Error marking all read:', err);
+      });
     }
   }, [user]);
 
   const deleteNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
     if (supabaseReady.current) {
-      notificationService.delete(id).catch(err => console.error('Error deleting notification:', err));
+      notificationService.delete(id).catch(err => {
+        if (import.meta.env.DEV) console.error('Error deleting notification:', err);
+      });
     }
   }, []);
 
   const clearAllNotifications = useCallback(() => {
     setNotifications([]);
     if (supabaseReady.current && user) {
-      notificationService.deleteAll(user.id).catch(err => console.error('Error clearing notifications:', err));
+      notificationService.deleteAll(user.id).catch(err => {
+        if (import.meta.env.DEV) console.error('Error clearing notifications:', err);
+      });
     }
   }, [user]);
 
@@ -567,7 +583,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     if (supabaseReady.current && user) {
       walletService.deposit(user.id, amount, method).catch(err => {
-        console.error('Error depositing:', err);
+        if (import.meta.env.DEV) console.error('Error depositing:', err);
         // Rollback optimistic update on failure
         setWalletBalance(prev => prev - amount);
         setWalletTransactions(prev => prev.map(t =>
@@ -592,7 +608,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     if (supabaseReady.current && user) {
       walletService.withdraw(user.id, amount, method).catch(err => {
-        console.error('Error withdrawing:', err);
+        if (import.meta.env.DEV) console.error('Error withdrawing:', err);
         // Rollback optimistic update on failure
         setWalletBalance(prev => prev + amount);
         setWalletTransactions(prev => prev.map(t =>
@@ -619,7 +635,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (supabaseReady.current) {
       walletService.releaseEscrow(order.buyerId, order.sellerId, order.escrowAmount || order.totalPrice, orderId)
         .catch(err => {
-          console.error('Error releasing escrow:', err);
+          if (import.meta.env.DEV) console.error('Error releasing escrow:', err);
           // Rollback status on failure
           setOrders(prev => prev.map(o =>
             o.id === orderId ? { ...o, status: 'delivered' } : o
@@ -627,7 +643,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         })
         .finally(() => { releasingRef.current.delete(orderId); });
       orderService.updateStatus(orderId, 'completed')
-        .catch(err => console.error('Error updating order:', err));
+        .catch(err => {
+          if (import.meta.env.DEV) console.error('Error updating order:', err);
+        });
     } else {
       releasingRef.current.delete(orderId);
     }
@@ -653,7 +671,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (supabaseReady.current) {
       orderService.updateStatus(orderId, 'disputed')
         .catch(err => {
-          console.error('Error updating order:', err);
+          if (import.meta.env.DEV) console.error('Error updating order:', err);
           // Rollback on failure
           setOrders(prev => prev.map(o =>
             o.id === orderId ? { ...o, status: prevStatus } : o
@@ -700,7 +718,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         tags: listing.tags,
       }).then((dbListing: any) => {
         setListings(prev => prev.map(l => l.id === tempId ? { ...l, id: dbListing.id } : l));
-      }).catch(err => console.error('Error creating listing:', err));
+      }).catch(err => {
+        if (import.meta.env.DEV) console.error('Error creating listing:', err);
+      });
     }
   }, [user]);
 
