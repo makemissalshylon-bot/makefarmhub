@@ -242,8 +242,10 @@ async function handleSendOTP(req: VercelRequest, res: VercelResponse) {
 async function handleVerifyOTP(req: VercelRequest, res: VercelResponse) {
   try {
     const { token, otp } = req.body;
+    console.log('[OTP] Verify request received:', { token: token?.substring(0, 10) + '...', otp });
 
     if (!token || !otp) {
+      console.error('[OTP] Missing token or OTP');
       return res.status(400).json({ error: 'Token and OTP are required' });
     }
 
@@ -251,6 +253,7 @@ async function handleVerifyOTP(req: VercelRequest, res: VercelResponse) {
 
   // Try Supabase first, then fall back to in-memory
   if (supabase) {
+    console.log('[OTP] Checking Supabase for token...');
     try {
       const { data, error } = await supabase
         .from('otp_verifications')
@@ -258,24 +261,41 @@ async function handleVerifyOTP(req: VercelRequest, res: VercelResponse) {
         .eq('token', token)
         .single();
 
-      if (!error && data) {
-        record = data as OTPRecord;
+      if (error) {
+        console.error('[OTP] Supabase query error:', error.message);
       }
-    } catch (err) {
-      console.error('[OTP] Supabase verify error:', err);
+      if (data) {
+        console.log('[OTP] Found record in Supabase');
+        record = data as OTPRecord;
+      } else {
+        console.log('[OTP] No record found in Supabase');
+      }
+    } catch (err: any) {
+      console.error('[OTP] Supabase verify error:', err.message || err);
     }
+  } else {
+    console.log('[OTP] Supabase not available, checking in-memory');
   }
 
   // Fall back to in-memory store
   if (!record) {
+    console.log('[OTP] Checking in-memory store...');
     record = otpStore.get(token) || null;
+    if (record) {
+      console.log('[OTP] Found record in memory');
+    } else {
+      console.log('[OTP] No record in memory either');
+    }
   }
 
   if (!record) {
+    console.error('[OTP] No OTP record found for token');
     return res.status(400).json({ error: 'Invalid or expired verification code' });
   }
 
+  console.log('[OTP] Checking expiration...', { expires_at: record.expires_at, now: new Date().toISOString() });
   if (new Date(record.expires_at) < new Date()) {
+    console.log('[OTP] Code expired');
     // Clean up expired record
     if (supabase) {
       await supabase.from('otp_verifications').delete().eq('token', token).catch(() => {});
@@ -284,7 +304,9 @@ async function handleVerifyOTP(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Verification code has expired' });
   }
 
+  console.log('[OTP] Comparing OTPs:', { stored: record.otp, provided: otp, match: record.otp === otp });
   if (record.otp !== otp) {
+    console.error('[OTP] OTP mismatch');
     return res.status(400).json({ error: 'Invalid verification code' });
   }
 
