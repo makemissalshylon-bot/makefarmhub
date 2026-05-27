@@ -298,7 +298,11 @@ async function handleVerifyOTP(req: VercelRequest, res: VercelResponse) {
     console.log('[OTP] Code expired');
     // Clean up expired record
     if (supabase) {
-      await supabase.from('otp_verifications').delete().eq('token', token).catch(() => {});
+      try {
+        await supabase.from('otp_verifications').delete().eq('token', token);
+      } catch (e) {
+        console.error('[OTP] Failed to delete expired OTP:', e);
+      }
     }
     otpStore.delete(token);
     return res.status(400).json({ error: 'Verification code has expired' });
@@ -312,7 +316,11 @@ async function handleVerifyOTP(req: VercelRequest, res: VercelResponse) {
 
   // Delete used OTP
   if (supabase) {
-    await supabase.from('otp_verifications').delete().eq('token', token).catch(() => {});
+    try {
+      await supabase.from('otp_verifications').delete().eq('token', token);
+    } catch (e) {
+      console.error('[OTP] Failed to delete used OTP:', e);
+    }
   }
   otpStore.delete(token);
 
