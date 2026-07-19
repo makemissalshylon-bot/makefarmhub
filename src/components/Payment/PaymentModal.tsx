@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { X, CreditCard, CheckCircle, AlertCircle, Smartphone, Copy, Phone } from 'lucide-react';
+import { X, CreditCard, CheckCircle, Smartphone, Copy, Phone, AlertCircle } from 'lucide-react';
 import { useToast } from '../UI/Toast';
 import { useAuth } from '../../context/AuthContext';
-import { isSupabaseReady } from '../../lib/supabase';
-import { walletService } from '../../services/supabase/walletService';
+import SmartPayment from './SmartPayment';
 import '../../styles/payment-modal.css';
+
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -15,24 +16,35 @@ interface PaymentModalProps {
 }
 
 export interface PaymentDetails {
-  method: 'ecocash' | 'onemoney' | 'innbucks';
+  method: 'ecocash' | 'onemoney' | 'innbucks' | 'card';
   transactionRef: string;
   amount: number;
   timestamp: string;
+  status?: 'completed' | 'pending_verification';
 }
 
-type PaymentStep = 'select' | 'instructions' | 'confirm' | 'processing' | 'success';
+type PaymentStep = 'select' | 'instructions' | 'card' | 'processing' | 'success' | 'pending';
 
 export default function PaymentModal({ isOpen, onClose, amount, orderId, onPaymentComplete }: PaymentModalProps) {
   const { showToast } = useToast();
   const { user } = useAuth();
   const [step, setStep] = useState<PaymentStep>('select');
-  const [selectedMethod, setSelectedMethod] = useState<'ecocash' | 'onemoney' | 'innbucks'>('ecocash');
+  const [selectedMethod, setSelectedMethod] = useState<'ecocash' | 'onemoney' | 'innbucks' | 'card'>('ecocash');
   const [transactionRef, setTransactionRef] = useState('');
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [pendingMessage, setPendingMessage] = useState('');
 
   if (!isOpen) return null;
 
   const paymentMethods = {
+    card: {
+      name: 'Card (Stripe)',
+      icon: CreditCard,
+      color: '#635bff',
+      dialCode: '',
+      merchantCode: '',
+      instructions: [] as string[],
+    },
     ecocash: {
       name: 'EcoCash',
       icon: Smartphone,
@@ -47,8 +59,8 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
         `Enter amount: $${amount.toFixed(2)}`,
         'Enter your PIN to confirm',
         'You will receive a confirmation SMS with reference number',
-        'Enter the reference number below'
-      ]
+        'Enter the reference number below',
+      ],
     },
     onemoney: {
       name: 'OneMoney',
@@ -64,8 +76,8 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
         `Enter amount: $${amount.toFixed(2)}`,
         'Enter your PIN to confirm',
         'You will receive a confirmation SMS with reference number',
-        'Enter the reference number below'
-      ]
+        'Enter the reference number below',
+      ],
     },
     innbucks: {
       name: 'InnBucks',
@@ -81,15 +93,38 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
         `Enter amount: $${amount.toFixed(2)}`,
         'Enter your PIN to confirm',
         'You will receive a confirmation SMS with reference number',
-        'Enter the reference number below'
-      ]
-    }
+        'Enter the reference number below',
+      ],
+    },
   };
 
   const currentMethod = paymentMethods[selectedMethod];
 
-  const handleMethodSelect = (method: 'ecocash' | 'onemoney' | 'innbucks') => {
+  const handleMethodSelect = async (method: 'ecocash' | 'onemoney' | 'innbucks' | 'card') => {
     setSelectedMethod(method);
+    if (method === 'card') {
+      setStep('card');
+      return;
+    }
+
+    // Initiate mobile money payment (pending until verified)
+    try {
+      const res = await fetch(`${API_URL}/mobile-money?action=initiate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount,
+          phone: user?.phone || '',
+          provider: method,
+          email: user?.email,
+          orderId,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.paymentId) setPaymentId(data.paymentId);
+    } catch {
+      // Continue with manual flow even if initiate fails
+    }
     setStep('instructions');
   };
 
@@ -107,37 +142,89 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
     setStep('processing');
 
     try {
-      // Record transaction in Supabase if available
-      if (isSupabaseReady() && user) {
-        await walletService.deposit(user.id, amount, `${selectedMethod}_${transactionRef}`);
+      const res = await fetch(`${API_URL}/mobile-money?action=verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentId,
+          reference: transactionRef.trim(),
+          provider: selectedMethod,
+          amount,
+          phone: user?.phone,
+          orderId,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      // Never treat unverified mobile money as completed funds
+      if (data.verified === true && data.status === 'completed') {
+        setStep('success');
+        const paymentDetails: PaymentDetails = {
+          method: selectedMethod as 'ecocash' | 'onemoney' | 'innbucks',
+          transactionRef: transactionRef.trim(),
+          amount,
+          timestamp: new Date().toISOString(),
+          status: 'completed',
+        };
+        setTimeout(() => {
+          onPaymentComplete(paymentDetails);
+          onClose();
+          resetModal();
+        }, 1500);
+        return;
       }
 
-      setStep('success');
+      // Pending verification — order can proceed but payment is not released
+      setPendingMessage(
+        data.message ||
+          'Reference recorded. Payment awaits verification before funds are released.'
+      );
+      setStep('pending');
       const paymentDetails: PaymentDetails = {
-        method: selectedMethod,
-        transactionRef: transactionRef,
-        amount: amount,
-        timestamp: new Date().toISOString()
+        method: selectedMethod as 'ecocash' | 'onemoney' | 'innbucks',
+        transactionRef: transactionRef.trim(),
+        amount,
+        timestamp: new Date().toISOString(),
+        status: 'pending_verification',
       };
-
       setTimeout(() => {
         onPaymentComplete(paymentDetails);
         onClose();
         resetModal();
-      }, 2000);
+      }, 2500);
     } catch {
-      setStep('select');
+      setStep('instructions');
       showToast('error', 'Payment verification failed. Please try again.');
     }
+  };
+
+  const handleCardSuccess = (paymentIdResult: string) => {
+    setStep('success');
+    const paymentDetails: PaymentDetails = {
+      method: 'card',
+      transactionRef: paymentIdResult,
+      amount,
+      timestamp: new Date().toISOString(),
+      status: 'completed',
+    };
+    setTimeout(() => {
+      onPaymentComplete(paymentDetails);
+      onClose();
+      resetModal();
+    }, 1200);
   };
 
   const resetModal = () => {
     setStep('select');
     setTransactionRef('');
+    setPaymentId(null);
+    setPendingMessage('');
+    setSelectedMethod('ecocash');
   };
 
   const handleClose = () => {
-    if (step === 'processing' || step === 'success') return;
+    if (step === 'processing' || step === 'success' || step === 'pending') return;
     onClose();
     setTimeout(resetModal, 300);
   };
@@ -145,22 +232,19 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
   return (
     <div className="payment-modal-overlay" onClick={handleClose}>
       <div className="payment-modal" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
         <div className="payment-modal-header">
           <div>
             <h2>Complete Payment</h2>
             <p className="payment-amount">Amount: <strong>${amount.toFixed(2)}</strong></p>
           </div>
-          {step !== 'processing' && step !== 'success' && (
-            <button className="close-btn" onClick={handleClose}>
+          {step !== 'processing' && step !== 'success' && step !== 'pending' && (
+            <button className="close-btn" onClick={handleClose} type="button">
               <X size={20} />
             </button>
           )}
         </div>
 
-        {/* Content */}
         <div className="payment-modal-content">
-          {/* Step 1: Select Method */}
           {step === 'select' && (
             <div className="payment-methods">
               <h3>Select Payment Method</h3>
@@ -170,6 +254,7 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
                   return (
                     <button
                       key={key}
+                      type="button"
                       className="payment-method-card"
                       onClick={() => handleMethodSelect(key as any)}
                       style={{ borderColor: method.color }}
@@ -183,8 +268,23 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
             </div>
           )}
 
-          {/* Step 2: Instructions */}
-          {step === 'instructions' && (
+          {step === 'card' && (
+            <div className="payment-card-flow">
+              <button type="button" className="btn-back" onClick={() => setStep('select')}>
+                Back
+              </button>
+              <SmartPayment
+                amount={amount}
+                orderId={orderId}
+                customerEmail={user?.email}
+                onSuccess={handleCardSuccess}
+                onError={(err) => showToast('error', err)}
+                onCancel={() => setStep('select')}
+              />
+            </div>
+          )}
+
+          {step === 'instructions' && selectedMethod !== 'card' && (
             <div className="payment-instructions">
               <div className="payment-method-header">
                 <currentMethod.icon size={40} color={currentMethod.color} />
@@ -198,6 +298,7 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
                 <Phone size={20} />
                 <span>Dial: <strong>{currentMethod.dialCode}</strong></span>
                 <button
+                  type="button"
                   className="copy-btn"
                   onClick={() => handleCopyCode(currentMethod.dialCode)}
                 >
@@ -208,6 +309,7 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
               <div className="merchant-code-box">
                 <span>Merchant Code: <strong>{currentMethod.merchantCode}</strong></span>
                 <button
+                  type="button"
                   className="copy-btn"
                   onClick={() => handleCopyCode(currentMethod.merchantCode)}
                 >
@@ -238,22 +340,22 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
               </div>
 
               <div className="payment-actions">
-                <button className="btn-back" onClick={() => setStep('select')}>
+                <button type="button" className="btn-back" onClick={() => setStep('select')}>
                   Back
                 </button>
                 <button
+                  type="button"
                   className="btn-confirm-payment"
                   onClick={handleConfirmPayment}
                   disabled={!transactionRef.trim()}
                 >
                   <CheckCircle size={20} />
-                  Confirm Payment
+                  Submit Reference
                 </button>
               </div>
             </div>
           )}
 
-          {/* Step 3: Processing */}
           {step === 'processing' && (
             <div className="payment-processing">
               <div className="spinner-large"></div>
@@ -262,7 +364,26 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
             </div>
           )}
 
-          {/* Step 4: Success */}
+          {step === 'pending' && (
+            <div className="payment-success">
+              <div className="success-icon">
+                <AlertCircle size={64} color="#d97706" />
+              </div>
+              <h3>Awaiting Verification</h3>
+              <p>{pendingMessage}</p>
+              <div className="payment-details">
+                <div className="detail-row">
+                  <span>Reference:</span>
+                  <strong>{transactionRef}</strong>
+                </div>
+                <div className="detail-row">
+                  <span>Amount:</span>
+                  <strong>${amount.toFixed(2)}</strong>
+                </div>
+              </div>
+            </div>
+          )}
+
           {step === 'success' && (
             <div className="payment-success">
               <div className="success-icon">
@@ -277,7 +398,7 @@ export default function PaymentModal({ isOpen, onClose, amount, orderId, onPayme
                 </div>
                 <div className="detail-row">
                   <span>Reference:</span>
-                  <strong>{transactionRef}</strong>
+                  <strong>{transactionRef || 'Card payment'}</strong>
                 </div>
                 <div className="detail-row">
                   <span>Amount:</span>

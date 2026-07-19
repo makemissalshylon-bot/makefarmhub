@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480" role="img" aria-label="No image">
+  <rect width="640" height="480" fill="#e8efe6"/>
+  <rect x="40" y="40" width="560" height="400" rx="12" fill="#d4e0d1"/>
+  <path d="M220 280 L280 200 L340 260 L380 220 L420 280 Z" fill="#8fa88a"/>
+  <circle cx="250" cy="160" r="28" fill="#a8bfa3"/>
+  <text x="320" y="340" text-anchor="middle" font-family="Georgia, serif" font-size="28" fill="#4a6350">MAKEFARMHUB</text>
+  <text x="320" y="375" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" fill="#6b7f6e">No image available</text>
+</svg>

@@ -54,7 +54,8 @@ export default function WeatherWidget({ location = 'Harare, Zimbabwe', compact =
     setLoading(true);
     setError(null);
     
-    const apiKey = import.meta.env.VITE_WEATHER_API_KEY;
+    const apiKey =
+      import.meta.env.VITE_OPENWEATHER_API_KEY || import.meta.env.VITE_WEATHER_API_KEY;
     
     // If no API key, use mock data
     if (!apiKey) {

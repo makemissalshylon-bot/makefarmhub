@@ -22,12 +22,13 @@ Live: [makefarmhub.vercel.app](https://makefarmhub.vercel.app)
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19, TypeScript, Vite 7 |
+| Frontend | React 18, TypeScript, Vite 5 |
 | Styling | CSS custom properties, responsive design |
 | Icons | Lucide React |
-| Routing | React Router v7 |
+| Routing | React Router v6 |
 | Backend | Vercel Serverless Functions |
-| Payments | Stripe, Mobile Money APIs |
+| Database / Auth | Supabase |
+| Payments | Stripe, Mobile Money (manual verify until provider keys) |
 | Hosting | Vercel |
 
 ## Getting Started
@@ -55,23 +56,23 @@ cp .env.example .env
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `VITE_GA_ID` | No | Google Analytics Measurement ID |
-| `VITE_WEATHER_API_KEY` | No | OpenWeatherMap API key for weather widget |
-| `VITE_STRIPE_PUBLISHABLE_KEY` | No | Stripe publishable key (enables real payments) |
-| `VITE_WS_URL` | No | WebSocket URL for real-time messaging |
-| `VITE_API_URL` | No | API URL override (auto-configured on Vercel) |
+| `VITE_SUPABASE_URL` | For real DB | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | For real DB | Supabase anon key |
+| `VITE_STRIPE_PUBLISHABLE_KEY` | No | Enables real Stripe Elements checkout |
+| `VITE_OPENWEATHER_API_KEY` | No | Weather widget (alias: `VITE_WEATHER_API_KEY`) |
+| `VITE_GA_ID` | No | Google Analytics (alias: `VITE_GA_MEASUREMENT_ID`) |
+| `VITE_API_URL` | No | API override (default `/api`) |
 
 **Server-only variables** (set in Vercel dashboard, never in frontend):
 
 | Variable | Description |
 |----------|-------------|
+| `SUPABASE_SERVICE_ROLE_KEY` | Webhooks / admin server ops |
 | `STRIPE_SECRET_KEY` | Stripe secret key |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
-| `SENDGRID_API_KEY` | SendGrid API key for email notifications |
-| `ECOCASH_API_KEY` | EcoCash mobile money API key |
-| `ONEMONEY_API_KEY` | OneMoney API key |
-| `INNBUCKS_API_KEY` | InnBucks API key |
-| `TELECASH_API_KEY` | Telecash API key |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret → point Dashboard to `/api/webhook` |
+| `SENDGRID_API_KEY` | Email notifications |
+| `RESEND_API_KEY` | Used by OTP email path when configured |
+| `ECOCASH_API_KEY` / `ONEMONEY_API_KEY` / … | Mobile money providers |
 
 ### Development
 
@@ -79,28 +80,32 @@ cp .env.example .env
 npm run dev
 ```
 
-Opens at `http://localhost:5173`
+Opens at `http://localhost:5173`. For local `/api/*` functions, use `npx vercel dev`.
 
-### Build
+### Build & test
 
 ```bash
 npm run build
-npm run preview   # preview production build locally
+npm run preview
+npm test
+npm run typecheck
 ```
 
 ## API Endpoints
 
-All endpoints are Vercel serverless functions under `/api/`.
+Consolidated Vercel functions (Hobby-friendly):
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/create-payment-intent` | Create a Stripe payment intent |
-| POST | `/api/confirm-payment` | Confirm a Stripe payment |
-| POST | `/api/create-refund` | Process a Stripe refund |
-| POST | `/api/webhook` | Stripe webhook handler |
-| POST | `/api/mobile-money-payment` | Initiate mobile money payment |
-| POST | `/api/mobile-money-verify` | Verify mobile money payment status |
-| POST | `/api/send-email` | Send transactional email notifications |
+| POST | `/api/payments?action=create-intent` | Create Stripe payment intent |
+| POST | `/api/payments?action=confirm` | Verify payment intent status with Stripe |
+| POST | `/api/payments?action=refund` | Create Stripe refund |
+| POST | `/api/webhook` | Stripe webhook (DB updates + notifications) |
+| POST | `/api/mobile-money?action=initiate` | Start mobile money payment |
+| POST | `/api/mobile-money?action=verify` | Submit SMS reference (manual review if no provider) |
+| POST | `/api/notifications?action=email` | Send transactional email |
+| POST | `/api/notifications?action=sms` | Send SMS |
+| POST | `/api/otp` | Send / verify OTP |
 
 ## Project Structure
 
@@ -121,7 +126,6 @@ MAKEFARMHUB/
 │   │   ├── Search/         # Advanced filters
 │   │   └── UI/             # Toast, Modal, Skeleton, ErrorBoundary
 │   ├── context/            # React contexts (Auth, Theme, Language, AppData)
-│   ├── data/               # Mock data for demo
 │   ├── hooks/              # Custom hooks (realtime, scroll, safe state)
 │   ├── locales/            # Translation strings (EN, SN, ND)
 │   ├── pages/              # Route pages (Dashboard, Marketplace, Admin, etc.)
@@ -134,16 +138,16 @@ MAKEFARMHUB/
 └── vite.config.ts          # Vite build configuration
 ```
 
-## Demo Accounts
+## Roles
 
-The app includes demo authentication. Use any of these roles to explore:
+Sign up with a role, or (in local `npm run dev` only) switch roles from Profile.
 
 | Role | Features |
 |------|----------|
 | Farmer | Dashboard, create listings, manage orders, wallet |
 | Buyer | Browse marketplace, place orders, track deliveries |
 | Transporter | Manage vehicles, accept bookings, track routes |
-| Admin | Full analytics, user management, disputes, settings |
+| Admin | Full analytics, user management, disputes, settings (Supabase `role=admin` in production) |
 
 ## Deployment
 

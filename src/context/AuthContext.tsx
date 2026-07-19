@@ -17,9 +17,11 @@ import { hashPassword, verifyPassword } from '../utils/hash';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
-// Admin credentials from env vars — never hardcode in source
+// Dev-only admin shortcut. Production admin must come from Supabase profile role=admin.
+// VITE_* values are bundled into the client — never treat them as production secrets.
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'missal@makefarmhub.com';
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || '';
+const ADMIN_PASSWORD = import.meta.env.DEV ? (import.meta.env.VITE_ADMIN_PASSWORD || '') : '';
+const DEMO_ROLE_SWITCH = import.meta.env.DEV;
 
 const DEFAULT_AVATARS: Record<string, string> = {
   farmer: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face',
@@ -36,7 +38,7 @@ interface AuthContextType {
   loginWithPassword: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
   login: (phone: string, otp: string, token: string) => Promise<{ success: boolean; error?: string }>;
   signup: (name: string, phone: string, email: string, role: UserRole, location: string, otp: string, token: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  sendOTP: (identifier: string, name?: string) => Promise<{ success: boolean; token?: string; error?: string }>;
+  sendOTP: (identifier: string, name?: string) => Promise<{ success: boolean; token?: string; devOTP?: string; error?: string }>;
   logout: () => void;
   switchRole: (role: UserRole) => void;
   updateProfile: (updates: Partial<User>) => void;
@@ -162,15 +164,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Login with password (for returning users)
   const loginWithPassword = async (identifier: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // Admin login — only matches exact admin email, requires env-configured password
-    if (identifier === ADMIN_EMAIL && ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
-      setUser(adminUser);
-      localStorage.setItem('makefarmhub_user', JSON.stringify(adminUser));
-      return { success: true };
-    }
-    if (identifier === ADMIN_EMAIL) {
+    // Dev-only admin shortcut (password is empty in production builds)
+    if (ADMIN_PASSWORD && identifier === ADMIN_EMAIL) {
+      if (password === ADMIN_PASSWORD) {
+        setUser(adminUser);
+        localStorage.setItem('makefarmhub_user', JSON.stringify(adminUser));
+        return { success: true };
+      }
       return { success: false, error: 'Invalid credentials' };
     }
+    // Production: admin users authenticate via Supabase with role=admin on their profile
 
     if (useSupabase) {
       try {
@@ -442,20 +445,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const switchRole = (role: UserRole) => {
-    if (user) {
-      if (useSupabase) {
-        // Update role in DB
-        const updatedUser = { ...user, role };
-        setUser(updatedUser);
-        localStorage.setItem('makefarmhub_user', JSON.stringify(updatedUser));
-        profileService.updateProfile(user.id, { role }).catch(err => {
-          if (import.meta.env.DEV) console.error('Error updating role:', err);
-        });
-      } else {
-        const roleUser = role === 'admin' ? adminUser : { ...user, role };
-        setUser(roleUser as User);
-        localStorage.setItem('makefarmhub_user', JSON.stringify(roleUser));
-      }
+    // Production: role changes must go through admin moderation / DB policies — not the client.
+    if (!DEMO_ROLE_SWITCH) {
+      if (import.meta.env.DEV) console.warn('switchRole is disabled outside development');
+      return;
+    }
+    if (!user) return;
+
+    if (useSupabase) {
+      const updatedUser = { ...user, role };
+      setUser(updatedUser);
+      localStorage.setItem('makefarmhub_user', JSON.stringify(updatedUser));
+      profileService.updateProfile(user.id, { role }).catch(err => {
+        if (import.meta.env.DEV) console.error('Error updating role:', err);
+      });
+    } else {
+      const roleUser = role === 'admin' ? adminUser : { ...user, role };
+      setUser(roleUser as User);
+      localStorage.setItem('makefarmhub_user', JSON.stringify(roleUser));
     }
   };
 

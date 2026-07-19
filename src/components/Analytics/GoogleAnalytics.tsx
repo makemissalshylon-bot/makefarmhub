@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
 // Replace with your actual GA4 Measurement ID
-const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_ID || 'G-XXXXXXXXXX';
+const GA_MEASUREMENT_ID =
+  import.meta.env.VITE_GA_ID || import.meta.env.VITE_GA_MEASUREMENT_ID || '';
 
 declare global {
   interface Window {
@@ -14,7 +15,8 @@ declare global {
 // Initialize Google Analytics
 export const initGA = () => {
   if (typeof window === 'undefined') return;
-  
+  if (!GA_MEASUREMENT_ID || GA_MEASUREMENT_ID.startsWith('G-XXXX')) return;
+
   // Don't initialize if already done
   if ((window as any).gtag) return;
 

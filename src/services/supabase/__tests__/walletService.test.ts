@@ -67,18 +67,18 @@ describe('walletService', () => {
 
   describe('holdEscrow', () => {
     it('should hold escrow amount for order', async () => {
-      const result = await walletService.holdEscrow('user-1', 'order-1', 200);
-      
+      const result = await walletService.holdEscrow('user-1', 200, 'order-1');
+
       expect(result).toBe(true);
     });
 
     it('should reject negative amounts', async () => {
-      await expect(walletService.holdEscrow('user-1', 'order-1', -100))
+      await expect(walletService.holdEscrow('user-1', -100, 'order-1'))
         .rejects.toThrow('Invalid escrow amount');
     });
 
     it('should reject zero amounts', async () => {
-      await expect(walletService.holdEscrow('user-1', 'order-1', 0))
+      await expect(walletService.holdEscrow('user-1', 0, 'order-1'))
         .rejects.toThrow('Invalid escrow amount');
     });
   });

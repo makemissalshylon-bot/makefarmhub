@@ -139,31 +139,46 @@ class NotificationService {
   }
 
   /**
-   * Send email notification (placeholder - would call backend)
+   * Send email notification via consolidated notifications API
    */
   async sendEmail(notification: EmailNotification): Promise<void> {
-    // In production, this would call your backend API
-    
-    // Example API call:
-    // await fetch('/api/notifications/email', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(notification),
-    // });
+    const API_URL = import.meta.env.VITE_API_URL || '/api';
+    const html =
+      notification.body ||
+      `<p>${notification.subject}</p><pre>${JSON.stringify(notification.data || {}, null, 2)}</pre>`;
+
+    const response = await fetch(`${API_URL}/notifications?action=email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: notification.to,
+        subject: notification.subject,
+        html,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to send email notification');
+    }
   }
 
   /**
-   * Send SMS notification (placeholder - would call backend)
+   * Send SMS notification via consolidated notifications API
    */
   async sendSMS(notification: SMSNotification): Promise<void> {
-    // In production, this would call your backend API
-    
-    // Example API call:
-    // await fetch('/api/notifications/sms', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(notification),
-    // });
+    const API_URL = import.meta.env.VITE_API_URL || '/api';
+    const response = await fetch(`${API_URL}/notifications?action=sms`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: notification.to,
+        message: notification.message,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to send SMS notification');
+    }
   }
 
   /**

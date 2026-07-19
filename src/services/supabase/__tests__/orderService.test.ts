@@ -58,62 +58,70 @@ describe('orderService', () => {
     vi.clearAllMocks();
   });
 
-  describe('getOrders', () => {
+  describe('getAll', () => {
     it('should fetch orders for user', async () => {
-      const orders = await orderService.getOrders('user-1', 'buyer');
-      
+      const orders = await orderService.getAll('user-1', 'buyer');
+
       expect(orders).toHaveLength(1);
       expect(orders[0].id).toBe('order-1');
       expect(orders[0].status).toBe('pending');
     });
 
     it('should filter by user role', async () => {
-      const buyerOrders = await orderService.getOrders('user-1', 'buyer');
-      const sellerOrders = await orderService.getOrders('user-1', 'seller');
-      
+      const buyerOrders = await orderService.getAll('user-1', 'buyer');
+      const sellerOrders = await orderService.getAll('user-1', 'seller');
+
       expect(buyerOrders).toBeDefined();
       expect(sellerOrders).toBeDefined();
     });
   });
 
-  describe('getOrderById', () => {
+  describe('getById', () => {
     it('should fetch single order', async () => {
-      const order = await orderService.getOrderById('order-1');
-      
+      const order = await orderService.getById('order-1');
+
       expect(order).toBeDefined();
       expect(order.id).toBe('order-1');
       expect(order.total_price).toBe(1500);
     });
   });
 
-  describe('createOrder', () => {
+  describe('create', () => {
     it('should create new order', async () => {
-      const newOrder = await orderService.createOrder({
+      const newOrder = await orderService.create({
         listing_id: 'listing-1',
+        listing_title: 'Test Listing',
+        listing_image: '/images/placeholder.svg',
         buyer_id: 'buyer-1',
+        buyer_name: 'Buyer',
         seller_id: 'seller-1',
+        seller_name: 'Seller',
         quantity: 10,
         unit_price: 100,
         total_price: 1000,
+        escrow_amount: 1000,
         delivery_address: '123 Main St',
-        delivery_date: '2026-06-01',
       });
-      
+
       expect(newOrder).toBeDefined();
       expect(newOrder.id).toBe('order-new');
       expect(newOrder.status).toBe('pending');
     });
 
     it('should require all mandatory fields', async () => {
-      await expect(orderService.createOrder({
+      await expect(orderService.create({
         listing_id: '',
+        listing_title: '',
+        listing_image: '',
         buyer_id: 'buyer-1',
+        buyer_name: 'Buyer',
         seller_id: 'seller-1',
+        seller_name: 'Seller',
         quantity: 0,
         unit_price: 100,
         total_price: 0,
+        escrow_amount: 0,
         delivery_address: '',
-        delivery_date: '',
       })).rejects.toThrow();
     });
   });
@@ -121,8 +129,7 @@ describe('orderService', () => {
   describe('updateStatus', () => {
     it('should update order status', async () => {
       await orderService.updateStatus('order-1', 'confirmed');
-      
-      // Verify update was called with correct params
+
       expect(vi.mocked).toBeDefined();
     });
 
@@ -134,32 +141,28 @@ describe('orderService', () => {
 
   describe('assignTransporter', () => {
     it('should assign transporter to order', async () => {
-      await orderService.assignTransporter('order-1', 'transporter-1');
-      
+      await orderService.assignTransporter('order-1', 'transporter-1', 'Test Transporter');
+
       expect(vi.mocked).toBeDefined();
     });
 
     it('should require valid transporter ID', async () => {
-      await expect(orderService.assignTransporter('order-1', ''))
+      await expect(orderService.assignTransporter('order-1', '', 'Test Transporter'))
         .rejects.toThrow();
     });
   });
 
   describe('Order status transitions', () => {
     it('should allow valid status transitions', async () => {
-      // pending -> confirmed
       await expect(orderService.updateStatus('order-1', 'confirmed'))
         .resolves.not.toThrow();
-      
-      // confirmed -> in_transit
+
       await expect(orderService.updateStatus('order-1', 'in_transit'))
         .resolves.not.toThrow();
-      
-      // in_transit -> delivered
+
       await expect(orderService.updateStatus('order-1', 'delivered'))
         .resolves.not.toThrow();
-      
-      // delivered -> completed
+
       await expect(orderService.updateStatus('order-1', 'completed'))
         .resolves.not.toThrow();
     });

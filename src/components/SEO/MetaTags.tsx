@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-interface MetaTagsProps {
+export interface MetaTagsProps {
   title?: string;
   description?: string;
   keywords?: string;

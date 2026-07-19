@@ -20,7 +20,8 @@ interface ForecastDay {
   rainProbability: number;
 }
 
-const API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY;
+const API_KEY =
+  import.meta.env.VITE_OPENWEATHER_API_KEY || import.meta.env.VITE_WEATHER_API_KEY;
 const BASE_URL = 'https://api.openweathermap.org/data/2.5';
 
 export const weatherService = {

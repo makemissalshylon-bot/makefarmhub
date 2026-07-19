@@ -328,9 +328,17 @@ export default function TransportTracking() {
                 </div>
               </div>
 
-              {/* Route Map */}
+              {/* Route Map — OpenStreetMap embed (Harare corridor fallback when GPS unavailable) */}
               <div className="route-map">
                 <div className="map-placeholder enhanced">
+                  <iframe
+                    title="Delivery route map"
+                    className="route-map-iframe"
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=30.95%2C-17.95%2C31.15%2C-17.75&layer=mapnik&marker=-17.8292%2C31.0522`}
+                    style={{ width: '100%', height: 220, border: 0, borderRadius: 8 }}
+                  />
                   <div className="map-route-visual">
                     <div className="route-line"></div>
                     <div className="pickup-marker">
@@ -348,7 +356,7 @@ export default function TransportTracking() {
                   <div className="map-info">
                     <Navigation size={20} />
                     <div>
-                      <p>Live Tracking Active</p>
+                      <p>{selectedRequest.status === 'in_progress' ? 'En route' : selectedRequest.status === 'completed' ? 'Delivered' : 'Awaiting pickup'}</p>
                       <span>{selectedRequest.status === 'in_progress' ? '45' : selectedRequest.status === 'completed' ? '95' : '10'}% of journey completed</span>
                     </div>
                   </div>

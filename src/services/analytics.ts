@@ -4,7 +4,7 @@
  */
 
 
-const GA_ID = import.meta.env.VITE_GA_ID;
+const GA_ID = import.meta.env.VITE_GA_ID || import.meta.env.VITE_GA_MEASUREMENT_ID;
 
 export const analytics = {
   /**
