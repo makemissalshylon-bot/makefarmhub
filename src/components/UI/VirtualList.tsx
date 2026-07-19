@@ -3,7 +3,8 @@
  * Renders only visible items for massive performance gains with large lists
  */
 
-import { useRef, useState, useEffect, useCallback, ReactNode } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
+import type { ReactNode } from 'react';
 
 interface VirtualListProps<T> {
   items: T[];

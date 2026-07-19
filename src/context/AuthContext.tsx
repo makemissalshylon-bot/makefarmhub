@@ -38,7 +38,7 @@ interface AuthContextType {
   loginWithPassword: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
   login: (phone: string, otp: string, token: string) => Promise<{ success: boolean; error?: string }>;
   signup: (name: string, phone: string, email: string, role: UserRole, location: string, otp: string, token: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  sendOTP: (identifier: string, name?: string) => Promise<{ success: boolean; token?: string; error?: string }>;
+  sendOTP: (identifier: string, name?: string) => Promise<{ success: boolean; token?: string; devOTP?: string; error?: string }>;
   logout: () => void;
   switchRole: (role: UserRole) => void;
   updateProfile: (updates: Partial<User>) => void;
