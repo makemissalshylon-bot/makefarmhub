@@ -226,7 +226,7 @@ export default function ProductRecommendations({
           >
             <div className="card-image">
               <img 
-                src={listing.images?.[0] || '/images/placeholder.jpg'} 
+                src={listing.images?.[0] || '/images/placeholder.svg'} 
                 alt={listing.title}
                 loading="lazy"
               />

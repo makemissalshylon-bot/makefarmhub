@@ -93,8 +93,8 @@ describe('AuthContext', () => {
     expect(result.current.user?.name).toBe('Test');
   });
 
-  it('loginWithPassword rejects admin email when VITE_ADMIN_PASSWORD is not set', async () => {
-    // By default in test env, VITE_ADMIN_PASSWORD is empty so admin login is disabled
+  it('loginWithPassword does not grant admin via empty VITE_ADMIN_PASSWORD', async () => {
+    // Without a configured admin password, admin email falls through to normal auth (fails if unknown)
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -104,7 +104,7 @@ describe('AuthContext', () => {
     });
 
     expect(loginResult.success).toBe(false);
-    expect(loginResult.error).toBe('Invalid credentials');
+    expect(result.current.user?.role).not.toBe('admin');
   });
 
   it('loginWithPassword works with hashed localStorage users', async () => {

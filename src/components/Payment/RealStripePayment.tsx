@@ -121,15 +121,15 @@ export default function RealStripePayment({
     setStatus('processing');
 
     try {
-      // Step 1: Create payment intent on backend
-      const response = await fetch(`${API_URL}/create-payment-intent`, {
+      // Step 1: Create payment intent on backend (consolidated API)
+      const response = await fetch(`${API_URL}/payments?action=create-intent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           amount,
-          currency,
+          currency: currency.toLowerCase(),
           orderId,
           customerEmail,
           description: `MAKEFARMHUB Order #${orderId}`,

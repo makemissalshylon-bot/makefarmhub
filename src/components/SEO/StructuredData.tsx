@@ -112,7 +112,7 @@ export const defaultOrganizationData: OrganizationData = {
   logo: 'https://makefarmhub.vercel.app/icons/icon-512x512.svg',
   description: 'Zimbabwe\'s leading digital agriculture marketplace connecting farmers, buyers, and transporters.',
   contactPoint: {
-    telephone: '+263-XXX-XXXXXX',
+    telephone: '+263-77-000-0000',
     contactType: 'customer service'
   }
 };

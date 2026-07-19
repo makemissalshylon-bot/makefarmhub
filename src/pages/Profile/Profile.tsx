@@ -262,27 +262,25 @@ export default function Profile() {
           )}
         </section>
 
-        {/* Switch Role (Demo) */}
-        <section className="profile-section">
-          <h2>Switch Role (Demo)</h2>
-          <p className="section-hint">For demo purposes, you can switch between different user roles</p>
-          <div className="role-switcher">
-            {(['farmer', 'buyer', 'transporter', 'admin'] as const).map((role) => (
-              <button
-                key={role}
-                className={`role-option ${user?.role === role ? 'active' : ''}`}
-                onClick={() => switchRole(role)}
-              >
-                {role === 'farmer' && '🌾'}
-                {role === 'buyer' && '🛒'}
-                {role === 'transporter' && '🚚'}
-                {role === 'admin' && '👑'}
-                <span>{role.charAt(0).toUpperCase() + role.slice(1)}</span>
-                {user?.role === role && <Check size={16} />}
-              </button>
-            ))}
-          </div>
-        </section>
+        {/* Dev-only role switch — hidden in production builds */}
+        {import.meta.env.DEV && (
+          <section className="profile-section">
+            <h2>Switch Role (Dev Only)</h2>
+            <p className="section-hint">Development helper — not available in production</p>
+            <div className="role-switcher">
+              {(['farmer', 'buyer', 'transporter', 'admin'] as const).map((role) => (
+                <button
+                  key={role}
+                  className={`role-option ${user?.role === role ? 'active' : ''}`}
+                  onClick={() => switchRole(role)}
+                >
+                  <span>{role.charAt(0).toUpperCase() + role.slice(1)}</span>
+                  {user?.role === role && <Check size={16} />}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Quick Links */}
         <section className="profile-section">

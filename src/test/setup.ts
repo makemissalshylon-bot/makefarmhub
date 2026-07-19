@@ -62,9 +62,13 @@ window.scrollTo = () => {};
 
 // Mock Notification API
 Object.defineProperty(window, 'Notification', {
-  value: {
-    permission: 'default',
-    requestPermission: () => Promise.resolve('granted'),
+  configurable: true,
+  writable: true,
+  value: class {
+    static permission = 'default';
+    static requestPermission() {
+      return Promise.resolve('granted' as NotificationPermission);
+    }
   },
 });
 

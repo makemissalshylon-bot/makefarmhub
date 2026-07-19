@@ -1,6 +1,6 @@
 /**
  * Email Notification Service
- * Frontend service for triggering email notifications via the API
+ * Frontend service for triggering email notifications via /api/notifications
  */
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -14,17 +14,72 @@ interface SendEmailOptions {
   data: Record<string, any>;
 }
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function renderTemplate(template: EmailTemplate, data: Record<string, any>): string {
+  switch (template) {
+    case 'order_confirmation':
+      return `
+        <h2>Order Confirmed</h2>
+        <p>Hi ${escapeHtml(data.customerName)},</p>
+        <p>Your order <strong>#${escapeHtml(data.orderId)}</strong> has been confirmed.</p>
+        <p>Total: <strong>$${Number(data.total || 0).toFixed(2)}</strong></p>
+        <p>Estimated delivery: ${escapeHtml(data.deliveryDate)}</p>
+        <p><a href="${escapeHtml(data.trackingUrl)}">Track your order</a></p>
+      `;
+    case 'payment_receipt':
+      return `
+        <h2>Payment Receipt</h2>
+        <p>Hi ${escapeHtml(data.customerName)},</p>
+        <p>We received your payment of <strong>$${Number(data.amount || 0).toFixed(2)}</strong> via ${escapeHtml(data.paymentMethod)}.</p>
+        <p>Transaction: ${escapeHtml(data.transactionId)}</p>
+        <p>Date: ${escapeHtml(data.date)}</p>
+        <p><a href="${escapeHtml(data.receiptUrl)}">View wallet</a></p>
+      `;
+    case 'delivery_update':
+      return `
+        <h2>Delivery Update</h2>
+        <p>Hi ${escapeHtml(data.customerName)},</p>
+        <p>Order <strong>#${escapeHtml(data.orderId)}</strong> status: <strong>${escapeHtml(data.status)}</strong></p>
+        <p>${escapeHtml(data.message)}</p>
+        ${data.trackingNumber ? `<p>Tracking: ${escapeHtml(data.trackingNumber)}</p>` : ''}
+        <p><a href="${escapeHtml(data.trackingUrl)}">View order</a></p>
+      `;
+    case 'message_notification':
+      return `
+        <h2>New Message</h2>
+        <p>Hi ${escapeHtml(data.recipientName)},</p>
+        <p><strong>${escapeHtml(data.senderName)}</strong> sent you a message:</p>
+        <blockquote>${escapeHtml(data.messagePreview)}</blockquote>
+        <p><a href="${escapeHtml(data.messageUrl)}">Open messages</a></p>
+      `;
+    default:
+      return `<p>${escapeHtml(JSON.stringify(data))}</p>`;
+  }
+}
+
 class EmailService {
   private async sendEmail(options: SendEmailOptions): Promise<boolean> {
     try {
-      const response = await fetch(`${API_URL}/send-email`, {
+      const html = renderTemplate(options.template, options.data);
+      const response = await fetch(`${API_URL}/notifications?action=email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(options),
+        body: JSON.stringify({
+          to: options.to,
+          subject: options.subject,
+          html,
+        }),
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         console.error('Email send failed:', error);
         return false;
       }

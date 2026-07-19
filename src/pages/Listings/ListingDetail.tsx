@@ -148,23 +148,29 @@ export default function ListingDetail() {
   const handlePaymentComplete = (paymentDetails: PaymentDetails) => {
     if (pendingOrderId) {
       markItemAsPurchased(listing.id);
-      
+
+      const isPending = paymentDetails.status === 'pending_verification';
       createNotification({
-        type: 'success',
-        title: 'Payment Successful',
-        message: `Your payment of $${paymentDetails.amount.toFixed(2)} has been confirmed`,
+        type: isPending ? 'info' : 'success',
+        title: isPending ? 'Payment Pending Verification' : 'Payment Successful',
+        message: isPending
+          ? `Reference ${paymentDetails.transactionRef} submitted. $${paymentDetails.amount.toFixed(2)} awaits confirmation.`
+          : `Your payment of $${paymentDetails.amount.toFixed(2)} has been confirmed`,
         actionUrl: `/orders/${pendingOrderId}`,
       });
-      
+
       createNotification({
         type: 'info',
         title: 'Contact Seller',
         message: `You can now message ${listing.sellerName} to coordinate delivery`,
         actionUrl: '/messages',
       });
-      
-      showToast('success', 'Order created successfully! Redirecting...');
-      
+
+      showToast(
+        isPending ? 'info' : 'success',
+        isPending ? 'Order created — payment awaiting verification' : 'Order created successfully! Redirecting...'
+      );
+
       setTimeout(() => {
         navigate(`/orders/${pendingOrderId}`);
       }, 1000);
