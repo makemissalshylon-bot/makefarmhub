@@ -149,6 +149,19 @@ Sign up with a role, or (in local `npm run dev` only) switch roles from Profile.
 | Transporter | Manage vehicles, accept bookings, track routes |
 | Admin | Full analytics, user management, disputes, settings (Supabase `role=admin` in production) |
 
+## Ops checklist (after deploy)
+
+| Task | How |
+|------|-----|
+| Stripe keys | Vercel env: `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY` |
+| Stripe webhook | Dashboard → endpoint `https://makefarmhub.vercel.app/api/webhook` → save `STRIPE_WEBHOOK_SECRET` → redeploy |
+| Promote admin | Run `supabase/promote_admin.sql` in Supabase SQL Editor (replace email) |
+| Seed DB samples | Run `supabase/seed.sql` after schema migrations |
+| Config probe | `GET https://makefarmhub.vercel.app/api/check-config` (booleans only) |
+| Local APIs | `npx vercel dev` (Vite alone does not serve `/api/*`) |
+
+Without Stripe keys, checkout still offers mobile money (pending verification). Without Supabase listings, the UI seeds a demo catalog so marketplace is never empty.
+
 ## Deployment
 
 The app auto-deploys to Vercel on push to `main`. For manual deployment:
