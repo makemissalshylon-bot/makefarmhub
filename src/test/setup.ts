@@ -3,6 +3,12 @@
  */
 
 import '@testing-library/jest-dom';
+import { afterEach } from 'vitest';
+import { cleanup } from '@testing-library/react';
+
+afterEach(() => {
+  cleanup();
+});
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -71,15 +77,3 @@ Object.defineProperty(window, 'Notification', {
     }
   },
 });
-
-// Suppress console errors in tests (optional)
-// const originalError = console.error;
-// beforeAll(() => {
-//   console.error = (...args) => {
-//     if (args[0]?.includes?.('Warning:')) return;
-//     originalError.call(console, ...args);
-//   };
-// });
-// afterAll(() => {
-//   console.error = originalError;
-// });

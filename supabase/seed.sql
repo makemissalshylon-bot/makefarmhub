@@ -1,5 +1,11 @@
 -- MakeFarmHub Seed Data
 -- Initial data for development and testing
+--
+-- IMPORTANT: Create matching Auth users in Supabase Auth first (or after),
+-- then align profile IDs, OR only use the listings/vehicles inserts with
+-- real seller/owner UUIDs from your profiles table.
+--
+-- To promote yourself to admin after signup, see promote_admin.sql
 
 -- Sample Profiles (passwords should be set via Supabase Auth)
 INSERT INTO profiles (id, name, email, phone, role, location, verified, bio, rating, total_reviews)

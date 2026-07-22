@@ -41,11 +41,15 @@ interface PaymentMethod {
 
 export default function Settings() {
   const [searchParams] = useSearchParams();
-  const { user, updateProfile, updateAvatar } = useAuth();
+  const { user, updateProfile, updateAvatar, updatePassword } = useAuth();
   const { theme, setTheme } = useTheme();
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
   
   // Handle URL tab parameter
   const urlTab = searchParams.get('tab') as SettingsTab | null;
@@ -690,13 +694,80 @@ export default function Settings() {
             <div className="security-item">
               <div className="security-item-info">
                 <h4>Change Password</h4>
-                <p>Last changed 30 days ago</p>
+                <p>Update the password you use to sign in</p>
               </div>
-              <button className="btn-action">
+              <button className="btn-action" type="button" onClick={() => setShowPasswordModal(true)}>
                 <Key size={16} style={{ marginRight: 6 }} />
                 Update
               </button>
             </div>
+
+            {showPasswordModal && (
+              <div className="modal-overlay" onClick={() => !passwordSaving && setShowPasswordModal(false)}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, padding: 24 }}>
+                  <h3 style={{ marginTop: 0 }}>Change password</h3>
+                  <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Enter a new password (min 6 characters).</p>
+                  <div className="form-group">
+                    <label htmlFor="new-password">New password</label>
+                    <input
+                      id="new-password"
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="confirm-password">Confirm password</label>
+                    <input
+                      id="confirm-password"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+                    <button
+                      type="button"
+                      className="btn-action"
+                      disabled={passwordSaving}
+                      onClick={() => setShowPasswordModal(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={passwordSaving}
+                      onClick={async () => {
+                        if (newPassword.length < 6) {
+                          showToast('error', 'Password must be at least 6 characters');
+                          return;
+                        }
+                        if (newPassword !== confirmPassword) {
+                          showToast('error', 'Passwords do not match');
+                          return;
+                        }
+                        setPasswordSaving(true);
+                        const result = await updatePassword(newPassword);
+                        setPasswordSaving(false);
+                        if (result.success) {
+                          showToast('success', 'Password updated');
+                          setShowPasswordModal(false);
+                          setNewPassword('');
+                          setConfirmPassword('');
+                        } else {
+                          showToast('error', result.error || 'Failed to update password');
+                        }
+                      }}
+                    >
+                      {passwordSaving ? 'Saving...' : 'Save password'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="security-item">
               <div className="security-item-info">

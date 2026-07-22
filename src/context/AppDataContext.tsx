@@ -10,6 +10,7 @@ import { notificationService } from '../services/supabase/notificationService';
 import { transportService } from '../services/supabase/transportService';
 import { reviewService } from '../services/supabase/reviewService';
 import { useAuth } from './AuthContext';
+import { DEMO_LISTINGS, DEMO_VEHICLES } from '../data/demoSeed';
 
 interface WalletTransaction {
   id: string;
@@ -166,55 +167,87 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   sellerStatsRef.current = sellerStats;
 
   // ============================================
-  // SUPABASE DATA LOADING
+  // DATA LOADING (public catalog always; user data when logged in)
   // ============================================
   useEffect(() => {
-    if (!isSupabaseReady() || !user) return;
+    const mapListing = (l: any): Listing => ({
+      id: l.id,
+      sellerId: l.seller_id,
+      sellerName: l.profiles?.name || 'Unknown Seller',
+      sellerAvatar: l.profiles?.avatar || '',
+      sellerRating: Number(l.profiles?.rating || 0),
+      sellerVerified: l.profiles?.verified || false,
+      title: l.title,
+      description: l.description,
+      category: l.category,
+      subcategory: l.subcategory,
+      price: Number(l.price),
+      unit: l.unit,
+      quantity: l.quantity,
+      location: l.location,
+      images: l.images?.length ? l.images : ['/images/placeholder.svg'],
+      status: l.status,
+      featured: l.featured,
+      views: l.views,
+      organic: l.organic,
+      tags: l.tags || [],
+      readyToSell: l.ready_to_sell,
+      deliveryTerms: l.delivery_terms,
+      createdAt: typeof l.created_at === 'string' ? l.created_at.split('T')[0] : l.created_at,
+    });
 
-    const loadData = async () => {
-      // Load each data source independently so one failure doesn't crash the app
-      
-      // Load listings
-      try {
-        const dbListings = await listingService.getAll();
-        const mappedListings: Listing[] = dbListings.map((l: any) => ({
-          id: l.id,
-          sellerId: l.seller_id,
-          sellerName: l.profiles?.name || 'Unknown Seller',
-          sellerAvatar: l.profiles?.avatar || '',
-          sellerRating: Number(l.profiles?.rating || 0),
-          sellerVerified: l.profiles?.verified || false,
-          sellerLocation: l.profiles?.location || l.location || '',
-          title: l.title,
-          description: l.description,
-          category: l.category,
-          subcategory: l.subcategory,
-          price: Number(l.price),
-          unit: l.unit,
-          quantity: l.quantity,
-          location: l.location,
-          images: l.images || [],
-          status: l.status,
-          featured: l.featured,
-          views: l.views,
-          organic: l.organic,
-          tags: l.tags || [],
-          readyToSell: l.ready_to_sell,
-          deliveryTerms: l.delivery_terms,
-          deliveryOptions: l.delivery_options || [],
-          paymentOptions: l.payment_options || [],
-          createdAt: l.created_at,
-        }));
-        setListings(mappedListings);
-      } catch (err) {
-        if (import.meta.env.DEV) console.warn('Failed to load listings from Supabase:', err);
+    const loadPublicCatalog = async () => {
+      if (!isSupabaseReady()) {
+        setListings((prev) => (prev.length ? prev : DEMO_LISTINGS));
+        setVehicles((prev) => (prev.length ? prev : DEMO_VEHICLES));
+        return;
       }
 
-      // Load orders
+      try {
+        const dbListings = await listingService.getAll();
+        if (dbListings?.length) {
+          setListings(dbListings.map(mapListing));
+        } else {
+          setListings((prev) => (prev.length ? prev : DEMO_LISTINGS));
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) console.warn('Failed to load listings from Supabase:', err);
+        setListings((prev) => (prev.length ? prev : DEMO_LISTINGS));
+      }
+
+      try {
+        const dbVehicles = await transportService.getVehicles();
+        if (dbVehicles?.length) {
+          setVehicles(dbVehicles.map((v: any) => ({
+            id: v.id,
+            ownerId: v.owner_id,
+            ownerName: v.owner_name,
+            type: v.type,
+            name: v.name,
+            capacity: v.capacity,
+            pricePerKm: Number(v.price_per_km),
+            available: v.available,
+            location: v.location,
+            image: v.image || '/images/placeholder.svg',
+            rating: Number(v.rating),
+            trips: v.trips,
+          })));
+        } else {
+          setVehicles((prev) => (prev.length ? prev : DEMO_VEHICLES));
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) console.warn('Failed to load vehicles from Supabase:', err);
+        setVehicles((prev) => (prev.length ? prev : DEMO_VEHICLES));
+      }
+    };
+
+    const loadUserData = async () => {
+      if (!isSupabaseReady() || !user) return;
+
       try {
         const role = user.role === 'farmer' ? 'seller' : user.role === 'transporter' ? 'transporter' : 'buyer';
         const dbOrders = await orderService.getAll(user.id, role as any);
-        const mappedOrders: Order[] = dbOrders.map((o: any) => ({
+        setOrders(dbOrders.map((o: any) => ({
           id: o.id,
           listingId: o.listing_id,
           listingTitle: o.listing_title,
@@ -233,16 +266,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           deliveryAddress: o.delivery_address,
           paymentMethod: o.payment_method,
           createdAt: o.created_at,
-        }));
-        setOrders(mappedOrders);
+        })));
       } catch (err) {
         if (import.meta.env.DEV) console.warn('Failed to load orders from Supabase:', err);
       }
 
-      // Load conversations
       try {
         const dbConvos = await messageService.getConversations(user.id);
-        const mappedConvos: Conversation[] = dbConvos.map((c: any) => ({
+        setConversations(dbConvos.map((c: any) => ({
           id: c.id,
           participants: (c.participant_ids || []).map((pid: string, idx: number) => ({
             id: pid,
@@ -255,16 +286,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           lastMessage: c.last_message,
           lastMessageTime: new Date(c.last_message_time).toLocaleString(),
           unreadCount: 0,
-        }));
-        setConversations(mappedConvos);
+        })));
       } catch (err) {
         if (import.meta.env.DEV) console.warn('Failed to load conversations from Supabase:', err);
       }
 
-      // Load notifications
       try {
         const dbNotifs = await notificationService.getAll(user.id);
-        const mappedNotifs: Notification[] = dbNotifs.map((n: any) => ({
+        setNotifications(dbNotifs.map((n: any) => ({
           id: n.id,
           type: n.type,
           title: n.title,
@@ -272,13 +301,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           read: n.read,
           timestamp: new Date(n.created_at).toLocaleString(),
           actionUrl: n.action_url,
-        }));
-        setNotifications(mappedNotifs);
+        })));
       } catch (err) {
         if (import.meta.env.DEV) console.warn('Failed to load notifications from Supabase:', err);
       }
 
-      // Load wallet
       try {
         const wallet: any = await walletService.getWallet(user.id);
         setWalletBalance(Number(wallet?.balance) || 0);
@@ -294,32 +321,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         })));
       } catch { /* wallet may not exist yet */ }
 
-      // Load vehicles & transport
-      try {
-        const dbVehicles = await transportService.getVehicles();
-        setVehicles(dbVehicles.map((v: any) => ({
-          id: v.id,
-          ownerId: v.owner_id,
-          ownerName: v.owner_name,
-          type: v.type,
-          name: v.name,
-          capacity: v.capacity,
-          pricePerKm: Number(v.price_per_km),
-          available: v.available,
-          location: v.location,
-          image: v.image,
-          rating: Number(v.rating),
-          trips: v.trips,
-        })));
-      } catch (err) {
-        if (import.meta.env.DEV) console.warn('Failed to load vehicles from Supabase:', err);
-      }
-
       try {
         const dbTransport = await transportService.getTransportRequests();
         setTransportRequests(dbTransport.map((t: any) => ({
           id: t.id,
           orderId: t.order_id,
+          transporterId: t.transporter_id,
           pickupLocation: t.pickup_location,
           deliveryLocation: t.delivery_location,
           distance: Number(t.distance),
@@ -334,7 +341,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    loadData();
+    loadPublicCatalog();
+    loadUserData();
   }, [user]);
 
   // ============================================

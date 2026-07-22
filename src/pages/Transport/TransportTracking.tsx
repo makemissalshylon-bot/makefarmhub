@@ -22,6 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import '../../styles/transport.css';
+import { buildRouteMapEmbed, estimateArrivalLabel } from '../../utils/routeMap';
 
 type TabType = 'active' | 'completed' | 'all';
 
@@ -58,9 +59,10 @@ export default function TransportTracking() {
       ...req,
       order,
       vehicle,
-      estimatedArrival: '2:30 PM',
-      currentLocation: 'En route',
-      progress: req.status === 'in_progress' ? 65 : req.status === 'completed' ? 100 : 0,
+      estimatedArrival: estimateArrivalLabel(req.status),
+      currentLocation: req.currentLocation || (req.status === 'in_progress' ? 'En route' : req.pickupLocation),
+      progress: req.status === 'in_progress' ? 65 : req.status === 'completed' ? 100 : req.status === 'accepted' ? 25 : 10,
+      mapEmbedUrl: buildRouteMapEmbed(req.pickupLocation, req.deliveryLocation),
     };
   });
 
@@ -336,7 +338,7 @@ export default function TransportTracking() {
                     className="route-map-iframe"
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=30.95%2C-17.95%2C31.15%2C-17.75&layer=mapnik&marker=-17.8292%2C31.0522`}
+                    src={selectedRequest.mapEmbedUrl}
                     style={{ width: '100%', height: 220, border: 0, borderRadius: 8 }}
                   />
                   <div className="map-route-visual">

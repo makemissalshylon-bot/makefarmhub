@@ -39,6 +39,9 @@ interface AuthContextType {
   login: (phone: string, otp: string, token: string) => Promise<{ success: boolean; error?: string }>;
   signup: (name: string, phone: string, email: string, role: UserRole, location: string, otp: string, token: string, password: string) => Promise<{ success: boolean; error?: string }>;
   sendOTP: (identifier: string, name?: string) => Promise<{ success: boolean; token?: string; devOTP?: string; error?: string }>;
+  requestPasswordReset: (email: string) => Promise<{ success: boolean; message?: string; error?: string; resetToken?: string; devOTP?: string }>;
+  confirmPasswordReset: (params: { password: string; token?: string; email?: string; otp?: string }) => Promise<{ success: boolean; error?: string }>;
+  updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   switchRole: (role: UserRole) => void;
   updateProfile: (updates: Partial<User>) => void;
@@ -497,6 +500,138 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const requestPasswordReset = async (
+    email: string
+  ): Promise<{ success: boolean; message?: string; error?: string; resetToken?: string; devOTP?: string }> => {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized.includes('@')) {
+      return { success: false, error: 'Enter the email address for your account' };
+    }
+
+    // Prefer Supabase Auth recovery email (works with hosted Auth users)
+    if (useSupabase || isSupabaseReady()) {
+      try {
+        const redirectTo = `${window.location.origin}/reset-password`;
+        const { error } = await supabase.auth.resetPasswordForEmail(normalized, { redirectTo });
+        if (error) {
+          // Fall through to API so we still try custom email delivery
+          if (import.meta.env.DEV) console.warn('Supabase resetPasswordForEmail:', error.message);
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) console.error('Supabase password reset error:', err);
+      }
+    }
+
+    // Also hit our API (SendGrid/Resend + custom token) for reliable delivery
+    try {
+      const response = await fetch('/api/reset-password?action=request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalized }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return { success: false, error: data.error || 'Failed to send reset email' };
+      }
+      return {
+        success: true,
+        message: data.message || 'If that email is registered, a password reset link has been sent.',
+        resetToken: data.resetToken,
+        devOTP: data.devOTP,
+      };
+    } catch {
+      // If API unreachable but Supabase call may have succeeded, still show success
+      return {
+        success: true,
+        message: 'If that email is registered, a password reset link has been sent. Check your inbox and spam folder.',
+      };
+    }
+  };
+
+  const confirmPasswordReset = async (params: {
+    password: string;
+    token?: string;
+    email?: string;
+    otp?: string;
+  }): Promise<{ success: boolean; error?: string }> => {
+    const { password, token, email, otp } = params;
+    if (!password || password.length < 6) {
+      return { success: false, error: 'Password must be at least 6 characters' };
+    }
+
+    // Recovery session from Supabase email link
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (!error) return { success: true };
+        if (import.meta.env.DEV) console.warn('updateUser password:', error.message);
+      }
+    } catch { /* continue */ }
+
+    // Custom token confirm via API
+    if (token) {
+      try {
+        const response = await fetch('/api/reset-password?action=confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, password, email, otp }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          return { success: false, error: data.error || 'Failed to reset password' };
+        }
+
+        // Update localStorage registry if present
+        if (email) {
+          const storedUsers = JSON.parse(localStorage.getItem('makefarmhub_registered_users') || '[]');
+          const idx = storedUsers.findIndex((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+          if (idx >= 0) {
+            storedUsers[idx].passwordHash = await hashPassword(password);
+            delete storedUsers[idx].password;
+            localStorage.setItem('makefarmhub_registered_users', JSON.stringify(storedUsers));
+          }
+        }
+        return { success: true };
+      } catch {
+        return { success: false, error: 'Network error. Please try again.' };
+      }
+    }
+
+    return {
+      success: false,
+      error: 'Reset link expired or invalid. Request a new password reset email.',
+    };
+  };
+
+  const updatePassword = async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, error: 'Password must be at least 6 characters' };
+    }
+
+    if (useSupabase) {
+      try {
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        if (error) return { success: false, error: error.message };
+        return { success: true };
+      } catch {
+        return { success: false, error: 'Failed to update password. Please try again.' };
+      }
+    }
+
+    if (!user?.email) {
+      return { success: false, error: 'No account email found' };
+    }
+
+    const storedUsers = JSON.parse(localStorage.getItem('makefarmhub_registered_users') || '[]');
+    const idx = storedUsers.findIndex((u: any) => u.email?.toLowerCase() === user.email.toLowerCase() || u.id === user.id);
+    if (idx < 0) return { success: false, error: 'Account not found' };
+    storedUsers[idx].passwordHash = await hashPassword(newPassword);
+    delete storedUsers[idx].password;
+    localStorage.setItem('makefarmhub_registered_users', JSON.stringify(storedUsers));
+    return { success: true };
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -507,6 +642,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       signup,
       sendOTP,
+      requestPasswordReset,
+      confirmPasswordReset,
+      updatePassword,
       logout,
       switchRole,
       updateProfile,
