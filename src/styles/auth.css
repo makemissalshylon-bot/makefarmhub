@@ -298,6 +298,17 @@
   cursor: not-allowed;
 }
 
+.forgot-password-link {
+  color: var(--primary, #2d6a4f) !important;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.auth-footer .forgot-password-link {
+  font-size: 0.95rem;
+}
+
 /* Terms Agreement */
 .terms-agreement {
   text-align: center;
