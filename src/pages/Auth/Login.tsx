@@ -107,11 +107,23 @@ export default function Login() {
                 </>
               )}
             </button>
+
+            <div className="otp-actions" style={{ justifyContent: 'center' }}>
+              <Link
+                to="/forgot-password"
+                state={{ identifier }}
+                className="btn-text forgot-password-link"
+              >
+                Forgot password?
+              </Link>
+            </div>
           </form>
         ) : (
           <form onSubmit={handleLogin} className="auth-form">
             <div className="form-group">
-              <label htmlFor="password">Password</label>
+              <label htmlFor="password">
+                <Lock size={16} /> Password
+              </label>
               <input
                 type="password"
                 id="password"
@@ -150,7 +162,7 @@ export default function Login() {
               <Link
                 to="/forgot-password"
                 state={{ identifier }}
-                className="btn-text"
+                className="btn-text forgot-password-link"
               >
                 Forgot password?
               </Link>
@@ -162,6 +174,11 @@ export default function Login() {
           <p>
             Don't have an account?{' '}
             <Link to="/signup">Create account</Link>
+          </p>
+          <p style={{ marginTop: '0.75rem' }}>
+            <Link to="/forgot-password" state={{ identifier }} className="forgot-password-link">
+              Forgot your password? Reset it here
+            </Link>
           </p>
         </div>
       </div>
