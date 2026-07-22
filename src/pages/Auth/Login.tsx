@@ -147,6 +147,13 @@ export default function Login() {
               >
                 Change {isEmail ? 'email' : 'number'}
               </button>
+              <Link
+                to="/forgot-password"
+                state={{ identifier }}
+                className="btn-text"
+              >
+                Forgot password?
+              </Link>
             </div>
           </form>
         )}

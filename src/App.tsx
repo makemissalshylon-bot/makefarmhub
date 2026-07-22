@@ -26,6 +26,8 @@ import './styles/animations.css';
 // Lazy load pages for faster initial load
 const Login = lazy(() => import('./pages/Auth/Login'));
 const Signup = lazy(() => import('./pages/Auth/Signup'));
+const ForgotPassword = lazy(() => import('./pages/Auth/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/Auth/ResetPassword'));
 const Landing = lazy(() => import('./pages/Landing/Landing'));
 const FarmerDashboard = lazy(() => import('./pages/Dashboard/FarmerDashboard'));
 const BuyerDashboard = lazy(() => import('./pages/Dashboard/BuyerDashboard'));
@@ -155,6 +157,8 @@ function AppRoutes() {
         path="/signup"
         element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Signup />}
       />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       
       {/* Public Legal Pages */}
       <Route path="/privacy" element={<PrivacyPolicy />} />

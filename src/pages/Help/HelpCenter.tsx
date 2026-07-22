@@ -108,7 +108,7 @@ const faqs: FAQItem[] = [
     id: 'g3',
     category: 'General',
     question: 'How do I change my account settings?',
-    answer: 'Go to Settings from the navigation menu. You can update your profile, change password, set notification preferences, manage privacy settings, and more.'
+    answer: 'On the login screen, after you enter your email, tap Forgot password. We email you a reset link. Open it, choose a new password, then sign in. You can also change your password anytime in Settings → Security.'
   }
 ];
 
