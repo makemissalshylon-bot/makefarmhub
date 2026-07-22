@@ -244,9 +244,6 @@ export default function LiveChat() {
                 <span className="chat-subtitle">{contacts.length} conversations</span>
               </>
             )}
-            <button className="close-chat" onClick={() => setIsOpen(false)}>
-              <X size={20} />
-            </button>
           </div>
 
           <div className="chat-body">
@@ -341,6 +338,18 @@ export default function LiveChat() {
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="chat-footer-bar">
+            <button
+              type="button"
+              className="close-chat"
+              onClick={() => { setIsOpen(false); setActiveChat(null); }}
+              aria-label="Close messages"
+            >
+              <X size={20} />
+              <span>Close</span>
+            </button>
           </div>
         </div>
       )}
