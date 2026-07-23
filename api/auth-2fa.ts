@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+// @ts-ignore - speakeasy ships no type declarations
 import speakeasy from 'speakeasy';
+// @ts-ignore - qrcode ships no type declarations
 import QRCode from 'qrcode';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

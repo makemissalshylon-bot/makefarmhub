@@ -80,6 +80,7 @@ async function handleSendSMS(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    // @ts-ignore - africastalking ships no type declarations
     const africastalking = await import('africastalking');
     const client = africastalking.default({ apiKey, username });
     

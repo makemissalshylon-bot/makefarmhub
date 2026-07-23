@@ -27,7 +27,7 @@ export const config = {
 };
 
 async function buffer(readable: VercelRequest): Promise<Buffer> {
-  const chunks: Buffer[] = [];
+  const chunks: Uint8Array[] = [];
   for await (const chunk of readable) {
     chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
   }
