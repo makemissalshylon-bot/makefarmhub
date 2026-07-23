@@ -36,11 +36,15 @@ export default function RealStripePayment({
   // Initialize Stripe
   useEffect(() => {
     const initStripe = async () => {
-      const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+      const publishableKey = (
+        import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || ''
+      ).trim();
       
       if (!publishableKey) {
         setStatus('error');
-        setErrorMessage('Stripe is not configured. Please contact support.');
+        setErrorMessage(
+          'Stripe publishable key missing. Add VITE_STRIPE_PUBLISHABLE_KEY in Vercel and Redeploy.'
+        );
         return;
       }
 
@@ -137,8 +141,17 @@ export default function RealStripePayment({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create payment');
+        let errorData: any = {};
+        try {
+          errorData = await response.json();
+        } catch {
+          /* non-JSON */
+        }
+        throw new Error(
+          errorData.error ||
+            errorData.hint ||
+            `Failed to create payment (${response.status})`
+        );
       }
 
       const { clientSecret } = await response.json();

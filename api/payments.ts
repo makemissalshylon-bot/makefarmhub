@@ -1,6 +1,17 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+function cors(res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  cors(res);
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
   const { action } = req.query;
 
   try {
@@ -21,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 async function getStripe() {
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const stripeKey = process.env.STRIPE_SECRET_KEY?.trim();
   if (!stripeKey) return null;
   const Stripe = (await import('stripe')).default;
   return new Stripe(stripeKey, { apiVersion: '2023-10-16' });
@@ -40,10 +51,14 @@ async function handleCreateIntent(req: VercelRequest, res: VercelResponse) {
 
   const stripe = await getStripe();
   if (!stripe) {
-    return res.status(400).json({ error: 'Stripe not configured' });
+    return res.status(503).json({
+      error: 'Stripe not configured',
+      hint: 'Set STRIPE_SECRET_KEY in Vercel and redeploy',
+    });
   }
 
   try {
+    // Card Element + confirmCardPayment — use card only (not automatic_payment_methods)
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(Number(amount) * 100),
       currency: String(currency).toLowerCase(),
@@ -53,16 +68,18 @@ async function handleCreateIntent(req: VercelRequest, res: VercelResponse) {
         platform: 'makefarmhub',
         orderId: orderId || '',
       },
-      automatic_payment_methods: { enabled: true },
+      payment_method_types: ['card'],
     });
 
     return res.status(200).json({
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[STRIPE] Error creating payment intent:', error);
-    return res.status(500).json({ error: 'Failed to create payment intent' });
+    return res.status(500).json({
+      error: error?.message || 'Failed to create payment intent',
+    });
   }
 }
 

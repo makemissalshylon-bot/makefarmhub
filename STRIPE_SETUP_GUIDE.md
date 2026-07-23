@@ -83,7 +83,7 @@ More test cards: https://stripe.com/docs/testing
 
 1. Go to: **https://dashboard.stripe.com/test/webhooks**
 2. Click **"Add endpoint"**
-3. Endpoint URL: `https://makefarmhub.vercel.app/api/stripe-webhook`
+3. Endpoint URL: `https://makefarmhub.vercel.app/api/webhook`
 4. Select events:
    - ✅ `payment_intent.succeeded`
    - ✅ `payment_intent.payment_failed`

@@ -47,12 +47,24 @@ export async function testSupabaseConnection(): Promise<boolean> {
   }
 
   try {
-    // Simple test: try to reach the database
-    const { error } = await supabase.from('profiles').select('id').limit(1);
+    // Prefer a public catalog table — profiles may be RLS-blocked for anon.
+    const { error } = await supabase.from('listings').select('id').limit(1);
     if (error && error.code !== 'PGRST116') {
-      // PGRST116 = "no rows returned" which is fine
-      console.warn('Supabase connection test failed:', error.message);
-      _supabaseReady = false;
+      // Credentials work if we get a real PostgREST response (including empty/RLS).
+      // Only treat network/invalid-key failures as offline.
+      const msg = (error.message || '').toLowerCase();
+      const badKey =
+        msg.includes('invalid api key') ||
+        msg.includes('jwt') ||
+        msg.includes('apikey') ||
+        error.code === 'PGRST301';
+      if (badKey) {
+        console.warn('Supabase connection test failed:', error.message);
+        _supabaseReady = false;
+      } else {
+        // Table missing / RLS / empty — project is reachable
+        _supabaseReady = true;
+      }
     } else {
       _supabaseReady = true;
     }
