@@ -364,8 +364,8 @@ const wallet = await walletService.getWallet(userId);
 **Required (4)**:
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-- `VITE_ADMIN_EMAIL`
-- `VITE_ADMIN_PASSWORD`
+- Admin access: set `profiles.role = 'admin'` in Supabase (see `supabase/promote_admin.sql`)
+- Optional dev-only: `VITE_ADMIN_EMAIL` / `VITE_ADMIN_PASSWORD` (ignored as production secrets)
 
 **Payment (7)**:
 - `VITE_STRIPE_PUBLISHABLE_KEY`

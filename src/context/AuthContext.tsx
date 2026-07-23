@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import type { User, UserRole } from '../types';
 const adminUser = {
   id: 'admin-1',
@@ -43,6 +43,7 @@ interface AuthContextType {
   confirmPasswordReset: (params: { password: string; token?: string; email?: string; otp?: string }) => Promise<{ success: boolean; error?: string }>;
   updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  refreshProfile: () => Promise<User | null>;
   switchRole: (role: UserRole) => void;
   updateProfile: (updates: Partial<User>) => void;
   updateAvatar: (avatarUrl: string) => void;
@@ -447,6 +448,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('makefarmhub_user');
   };
 
+  /** Re-fetch role/profile from Supabase so localStorage cannot fake admin. */
+  const refreshProfile = useCallback(async (): Promise<User | null> => {
+    if (!isSupabaseReady()) {
+      try {
+        const stored = localStorage.getItem('makefarmhub_user');
+        return stored ? (JSON.parse(stored) as User) : null;
+      } catch {
+        return null;
+      }
+    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return null;
+      const profile = await profileService.getProfile(session.user.id);
+      const appUser = mapProfileToUser(profile);
+      setUser(appUser);
+      localStorage.setItem('makefarmhub_user', JSON.stringify(appUser));
+      return appUser;
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('refreshProfile failed:', err);
+      return null;
+    }
+  }, []);
+
   const switchRole = (role: UserRole) => {
     // Production: role changes must go through admin moderation / DB policies — not the client.
     if (!DEMO_ROLE_SWITCH) {
@@ -646,6 +671,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       confirmPasswordReset,
       updatePassword,
       logout,
+      refreshProfile,
       switchRole,
       updateProfile,
       updateAvatar,

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -12,6 +12,7 @@ import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import MetaTags from './components/SEO/MetaTags';
 import StructuredData, { defaultOrganizationData } from './components/SEO/StructuredData';
 import GoogleAnalytics from './components/Analytics/GoogleAnalytics';
+import { isSupabaseReady } from './lib/supabase';
 
 // Lazy-load non-critical shell components
 const BottomNavigation = lazy(() => import('./components/Mobile/BottomNavigation'));
@@ -126,14 +127,58 @@ function DashboardRouter() {
   }
 }
 
-// Admin Route Guard
+// Admin Route Guard — re-check role from Supabase when connected
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  
-  if (user?.role !== 'admin') {
+  const { user, isLoading, refreshProfile } = useAuth();
+  const [allowed, setAllowed] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const verify = async () => {
+      if (isLoading) return;
+
+      if (!user) {
+        if (!cancelled) {
+          setAllowed(false);
+          setChecking(false);
+        }
+        return;
+      }
+
+      if (isSupabaseReady()) {
+        const fresh = await refreshProfile();
+        if (!cancelled) {
+          setAllowed(fresh?.role === 'admin');
+          setChecking(false);
+        }
+        return;
+      }
+
+      // Offline / local demo only
+      if (!cancelled) {
+        setAllowed(user.role === 'admin');
+        setChecking(false);
+      }
+    };
+
+    setChecking(true);
+    verify();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh once per session user
+  }, [user?.id, isLoading]);
+
+  if (isLoading || checking) {
+    return <PageLoader />;
+  }
+
+  if (!allowed) {
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   return <>{children}</>;
 }
 

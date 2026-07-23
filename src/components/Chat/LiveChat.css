@@ -181,6 +181,37 @@
   overflow: hidden;
 }
 
+.live-chat-window--compact {
+  height: auto;
+  min-height: 220px;
+  max-height: 360px;
+}
+
+.chat-subtitle {
+  display: block;
+  font-size: 0.8rem;
+  opacity: 0.9;
+  margin-top: 0.25rem;
+}
+
+.chat-body--cta {
+  padding: 1.25rem 1rem;
+  gap: 1rem;
+  justify-content: center;
+  align-items: stretch;
+}
+
+.chat-body--cta p {
+  margin: 0;
+  color: var(--text-secondary, #64748b);
+  line-height: 1.5;
+}
+
+.open-messages-btn {
+  width: 100%;
+  justify-content: center;
+}
+
 .contacts-list {
   overflow-y: auto;
   flex: 1;

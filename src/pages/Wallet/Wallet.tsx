@@ -45,16 +45,33 @@ export default function Wallet() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('EcoCash');
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [newPaymentType, setNewPaymentType] = useState<'mobile_money' | 'bank_transfer' | 'card' | null>(null);
+  const [newMethodForm, setNewMethodForm] = useState({
+    provider: 'EcoCash',
+    accountNumber: '',
+    accountName: '',
+  });
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [disputeOrderId, setDisputeOrderId] = useState<string | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
   const [isDepositing, setIsDepositing] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
-  const [paymentMethods] = useState(() => {
-    const stored = localStorage.getItem('makefarmhub_payment_methods');
-    return stored ? JSON.parse(stored) : [];
-  });
+  const methodsKey = user?.id ? `makefarmhub_payment_methods_${user.id}` : 'makefarmhub_payment_methods';
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(methodsKey);
+      setPaymentMethods(stored ? JSON.parse(stored) : []);
+    } catch {
+      setPaymentMethods([]);
+    }
+  }, [methodsKey]);
+
+  const savePaymentMethods = (methods: any[]) => {
+    setPaymentMethods(methods);
+    localStorage.setItem(methodsKey, JSON.stringify(methods));
+  };
 
   const loadWallet = useCallback(async () => {
     if (!user?.id || !isSupabaseReady()) return;
@@ -766,7 +783,10 @@ export default function Wallet() {
                     <>
                       <div className="form-group">
                         <label>Provider</label>
-                        <select>
+                        <select
+                          value={newMethodForm.provider}
+                          onChange={(e) => setNewMethodForm({ ...newMethodForm, provider: e.target.value })}
+                        >
                           <option>EcoCash</option>
                           <option>OneMoney</option>
                           <option>InnBucks</option>
@@ -774,11 +794,21 @@ export default function Wallet() {
                       </div>
                       <div className="form-group">
                         <label>Phone Number</label>
-                        <input type="tel" placeholder="0771234567" />
+                        <input
+                          type="tel"
+                          placeholder="0771234567"
+                          value={newMethodForm.accountNumber}
+                          onChange={(e) => setNewMethodForm({ ...newMethodForm, accountNumber: e.target.value })}
+                        />
                       </div>
                       <div className="form-group">
                         <label>Account Name</label>
-                        <input type="text" placeholder="John Doe" />
+                        <input
+                          type="text"
+                          placeholder="Your name"
+                          value={newMethodForm.accountName}
+                          onChange={(e) => setNewMethodForm({ ...newMethodForm, accountName: e.target.value })}
+                        />
                       </div>
                     </>
                   )}
@@ -786,7 +816,10 @@ export default function Wallet() {
                     <>
                       <div className="form-group">
                         <label>Bank Name</label>
-                        <select>
+                        <select
+                          value={newMethodForm.provider}
+                          onChange={(e) => setNewMethodForm({ ...newMethodForm, provider: e.target.value })}
+                        >
                           <option>CBZ Bank</option>
                           <option>Stanbic Bank</option>
                           <option>FBC Bank</option>
@@ -795,34 +828,48 @@ export default function Wallet() {
                       </div>
                       <div className="form-group">
                         <label>Account Number</label>
-                        <input type="text" placeholder="1234567890" />
+                        <input
+                          type="text"
+                          placeholder="1234567890"
+                          value={newMethodForm.accountNumber}
+                          onChange={(e) => setNewMethodForm({ ...newMethodForm, accountNumber: e.target.value })}
+                        />
                       </div>
                       <div className="form-group">
                         <label>Account Name</label>
-                        <input type="text" placeholder="John Doe" />
+                        <input
+                          type="text"
+                          placeholder="Your name"
+                          value={newMethodForm.accountName}
+                          onChange={(e) => setNewMethodForm({ ...newMethodForm, accountName: e.target.value })}
+                        />
                       </div>
                     </>
                   )}
                   {newPaymentType === 'card' && (
                     <>
                       <div className="form-group">
-                        <label>Card Number</label>
-                        <input type="text" placeholder="1234 5678 9012 3456" maxLength={19} />
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <div className="form-group">
-                          <label>Expiry Date</label>
-                          <input type="text" placeholder="MM/YY" maxLength={5} />
-                        </div>
-                        <div className="form-group">
-                          <label>CVV</label>
-                          <input type="text" placeholder="123" maxLength={3} />
-                        </div>
+                        <label>Card Number (last 4 for display)</label>
+                        <input
+                          type="text"
+                          placeholder="1234 5678 9012 3456"
+                          maxLength={19}
+                          value={newMethodForm.accountNumber}
+                          onChange={(e) => setNewMethodForm({ ...newMethodForm, accountNumber: e.target.value, provider: 'Card' })}
+                        />
                       </div>
                       <div className="form-group">
                         <label>Cardholder Name</label>
-                        <input type="text" placeholder="John Doe" />
+                        <input
+                          type="text"
+                          placeholder="Your name"
+                          value={newMethodForm.accountName}
+                          onChange={(e) => setNewMethodForm({ ...newMethodForm, accountName: e.target.value })}
+                        />
                       </div>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        Full card details are not stored here. Use Stripe checkout for card payments.
+                      </p>
                     </>
                   )}
                 </div>
@@ -833,11 +880,42 @@ export default function Wallet() {
                 <button className="btn-secondary" onClick={() => setNewPaymentType(null)}>
                   Back
                 </button>
-                <button className="btn-primary" onClick={() => {
-                  showToast('success', 'Payment method added successfully');
-                  setShowAddPaymentModal(false);
-                  setNewPaymentType(null);
-                }}>
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    if (!newMethodForm.accountNumber.trim() || !newMethodForm.accountName.trim()) {
+                      showToast('error', 'Enter account number and name');
+                      return;
+                    }
+                    const type =
+                      newPaymentType === 'mobile_money'
+                        ? 'mobile_money'
+                        : newPaymentType === 'bank_transfer'
+                          ? 'bank'
+                          : 'card';
+                    const displayNumber =
+                      type === 'card'
+                        ? `•••• ${newMethodForm.accountNumber.replace(/\s/g, '').slice(-4)}`
+                        : newMethodForm.accountNumber.trim();
+                    const next = [
+                      ...paymentMethods,
+                      {
+                        id: `pm_${Date.now()}`,
+                        type,
+                        provider: newMethodForm.provider,
+                        accountNumber: displayNumber,
+                        accountName: newMethodForm.accountName.trim(),
+                        verified: false,
+                        isDefault: paymentMethods.length === 0,
+                      },
+                    ];
+                    savePaymentMethods(next);
+                    showToast('success', 'Payment method saved on this device');
+                    setShowAddPaymentModal(false);
+                    setNewPaymentType(null);
+                    setNewMethodForm({ provider: 'EcoCash', accountNumber: '', accountName: '' });
+                  }}
+                >
                   Add Payment Method
                 </button>
               </div>

@@ -121,9 +121,10 @@ In the Vercel project settings, add these **Environment Variables**:
 ```bash
 VITE_SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGc...
-VITE_ADMIN_EMAIL=missal@makefarmhub.com
-VITE_ADMIN_PASSWORD=your_secure_admin_password
 ```
+
+Promote admins in Supabase (`profiles.role = 'admin'`) using `supabase/promote_admin.sql`.  
+`VITE_ADMIN_EMAIL` / `VITE_ADMIN_PASSWORD` are **dev-only** login shortcuts and must not be treated as production auth.
 
 #### Backend Only (Server-side secrets)
 ```bash
@@ -330,9 +331,10 @@ ALTER PUBLICATION supabase_realtime ADD TABLE conversations;
   - `review-images`
 
 ### Admin Login Not Working
-- Verify `VITE_ADMIN_EMAIL` and `VITE_ADMIN_PASSWORD` are set
-- Admin account must exist in Supabase Auth with matching email
-- Role in `profiles` table must be `'admin'`
+- Run `supabase/promote_admin.sql` so `profiles.role = 'admin'` for your email
+- Log out and log back in after promoting
+- Confirm you signed up with that same email in Supabase Auth
+- `VITE_ADMIN_PASSWORD` only works in local `npm run dev` — not on Vercel
 
 ---
 

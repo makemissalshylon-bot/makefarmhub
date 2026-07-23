@@ -34,8 +34,6 @@ export default function Orders() {
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [selectedPayment, setSelectedPayment] = useState('ecocash');
-  const [showChatModal, setShowChatModal] = useState(false);
-  const [chatOrderId, setChatOrderId] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
   // Get orders based on user role
@@ -99,10 +97,9 @@ export default function Orders() {
     });
   };
   
-  // Handle opening chat
+  // Open real Messages (not a fake in-page chat)
   const handleOpenChat = (orderId: string) => {
-    setChatOrderId(orderId);
-    setShowChatModal(true);
+    navigate(`/messages?order=${orderId}`);
   };
 
   const filteredOrders = myOrders
@@ -559,38 +556,6 @@ export default function Orders() {
               >
                 Submit Cancellation Request
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Chat Modal */}
-      {showChatModal && chatOrderId && (
-        <div className="modal-overlay">
-          <div className="chat-modal">
-            <div className="chat-header">
-              <h3>Chat with {user?.role === 'farmer' ? 'Buyer' : 'Seller'}</h3>
-              <button className="close-btn" onClick={() => setShowChatModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="chat-body">
-              <div className="message-list">
-                {/* Initial message */}
-                <div className="message seller">
-                  <img src="https://randomuser.me/api/portraits/men/41.jpg" alt="Seller" />
-                  <div className="message-content">
-                    <div className="message-header">
-                      <span className="message-sender">{user?.role === 'farmer' ? 'You' : 'Seller'}</span>
-                      <span className="message-time">just now</span>
-                    </div>
-                    <p>Hello! How can I help you with your order?</p>
-                  </div>
-                </div>
-              </div>
-              <div className="chat-input">
-                <textarea placeholder="Type your message here..."></textarea>
-                <button className="send-btn">Send</button>
-              </div>
             </div>
           </div>
         </div>

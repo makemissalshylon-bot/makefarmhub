@@ -85,17 +85,14 @@ export default function MyListings() {
   const viewOffers = (listing: any) => {
     setSelectedListingOffers({
       listing,
-      offers: [
-        { id: '1', buyerName: 'John Doe', amount: listing.price * 0.9, message: 'Can you do $' + (listing.price * 0.9) + '?', status: 'pending' },
-        { id: '2', buyerName: 'Jane Smith', amount: listing.price * 0.95, message: 'Interested in bulk purchase', status: 'pending' },
-      ]
+      offers: [],
     });
     setShowOffersModal(true);
     setActiveMenu(null);
   };
 
-  const handleOffer = (offerId: string, action: 'accept' | 'reject') => {
-    alert(`Offer ${action}ed!`);
+  const handleOffer = (_offerId: string, _action: 'accept' | 'reject') => {
+    // Offers API not wired yet
   };
 
   return (
@@ -236,7 +233,7 @@ export default function MyListings() {
                             </button>
                           )}
                           <button onClick={() => viewOffers(listing)}>
-                            <DollarSign size={16} /> View Offers (2)
+                            <DollarSign size={16} /> View Offers
                           </button>
                           <Link to={`/messages`}>
                             <MessageSquare size={16} /> Messages
@@ -303,7 +300,18 @@ export default function MyListings() {
             </div>
             
             <div className="offers-list">
-              {selectedListingOffers.offers.map((offer: any) => (
+              {selectedListingOffers.offers.length === 0 ? (
+                <div className="empty-state" style={{ padding: '2rem 1rem', textAlign: 'center' }}>
+                  <DollarSign size={40} style={{ opacity: 0.4, marginBottom: 8 }} />
+                  <h3>No offers yet</h3>
+                  <p>When buyers make offers on this listing, they will appear here.</p>
+                  <Link to="/messages" className="btn-primary" style={{ marginTop: 12, display: 'inline-flex' }}>
+                    <MessageSquare size={16} />
+                    Open Messages
+                  </Link>
+                </div>
+              ) : (
+                selectedListingOffers.offers.map((offer: any) => (
                 <div key={offer.id} className="offer-card">
                   <div className="offer-header">
                     <div>
@@ -330,7 +338,8 @@ export default function MyListings() {
                     </div>
                   )}
                 </div>
-              ))}
+              ))
+              )}
             </div>
           </div>
         </div>

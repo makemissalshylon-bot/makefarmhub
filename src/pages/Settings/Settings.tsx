@@ -91,33 +91,40 @@ export default function Settings() {
     publicProfile: true,
   });
 
-  // Payment methods state - pre-populated with owner's details
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
-    {
-      id: '1',
-      type: 'bank',
-      name: 'Bank Transfer',
-      accountNumber: '5333038027264487',
-      accountName: 'Missal Shylon Make',
-      isDefault: true,
-    },
-    {
-      id: '2',
-      type: 'ecocash',
-      name: 'EcoCash',
-      accountNumber: '0782919633',
-      accountName: 'Missal Shylon Make',
-      isDefault: false,
-    },
-    {
-      id: '3',
-      type: 'onemoney',
-      name: 'OneMoney',
-      accountNumber: '0714291034',
-      accountName: 'Missal Shylon Make',
-      isDefault: false,
-    },
-  ]);
+  const paymentStorageKey = user?.id ? `makefarmhub_payment_methods_${user.id}` : null;
+
+  // User-owned payment methods only (never shared platform defaults)
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+
+  useEffect(() => {
+    if (!paymentStorageKey) {
+      setPaymentMethods([]);
+      return;
+    }
+    try {
+      const stored = localStorage.getItem(paymentStorageKey);
+      setPaymentMethods(stored ? JSON.parse(stored) : []);
+    } catch {
+      setPaymentMethods([]);
+    }
+  }, [paymentStorageKey]);
+
+  useEffect(() => {
+    if (!paymentStorageKey) return;
+    localStorage.setItem(paymentStorageKey, JSON.stringify(paymentMethods));
+  }, [paymentMethods, paymentStorageKey]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      const n = localStorage.getItem(`makefarmhub_notifications_${user.id}`);
+      if (n) setNotifications((prev) => ({ ...prev, ...JSON.parse(n) }));
+      const p = localStorage.getItem(`makefarmhub_privacy_${user.id}`);
+      if (p) setPrivacy((prev) => ({ ...prev, ...JSON.parse(p) }));
+    } catch {
+      /* ignore corrupt prefs */
+    }
+  }, [user?.id]);
 
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [newPayment, setNewPayment] = useState({
@@ -225,14 +232,29 @@ export default function Settings() {
     showToast('success', 'Account settings saved successfully!');
   };
 
+  const handleCancelAccount = () => {
+    setFormData({
+      name: user?.name || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
+      location: user?.location || '',
+      bio: '',
+    });
+    showToast('info', 'Changes discarded');
+  };
+
   const handleSaveNotifications = () => {
-    // In real app, save to backend
-    showToast('success', 'Notification preferences saved!');
+    if (user?.id) {
+      localStorage.setItem(`makefarmhub_notifications_${user.id}`, JSON.stringify(notifications));
+    }
+    showToast('success', 'Notification preferences saved on this device');
   };
 
   const handleSavePrivacy = () => {
-    // In real app, save to backend
-    showToast('success', 'Privacy settings saved!');
+    if (user?.id) {
+      localStorage.setItem(`makefarmhub_privacy_${user.id}`, JSON.stringify(privacy));
+    }
+    showToast('success', 'Privacy settings saved on this device');
   };
 
   const tabs = [
@@ -375,7 +397,7 @@ export default function Settings() {
             </div>
 
             <div className="settings-actions">
-              <button className="btn-cancel">Cancel</button>
+              <button type="button" className="btn-cancel" onClick={handleCancelAccount}>Cancel</button>
               <button className="btn-save" onClick={handleSaveAccount}>
                 Save Changes
               </button>
@@ -539,7 +561,21 @@ export default function Settings() {
             </div>
 
             <div className="settings-actions">
-              <button className="btn-cancel">Cancel</button>
+              <button
+                type="button"
+                className="btn-cancel"
+                onClick={() => {
+                  if (user?.id) {
+                    try {
+                      const n = localStorage.getItem(`makefarmhub_notifications_${user.id}`);
+                      if (n) setNotifications((prev) => ({ ...prev, ...JSON.parse(n) }));
+                    } catch { /* ignore */ }
+                  }
+                  showToast('info', 'Changes discarded');
+                }}
+              >
+                Cancel
+              </button>
               <button className="btn-save" onClick={handleSaveNotifications}>
                 Save Preferences
               </button>
@@ -675,7 +711,21 @@ export default function Settings() {
             </div>
 
             <div className="settings-actions">
-              <button className="btn-cancel">Cancel</button>
+              <button
+                type="button"
+                className="btn-cancel"
+                onClick={() => {
+                  if (user?.id) {
+                    try {
+                      const p = localStorage.getItem(`makefarmhub_privacy_${user.id}`);
+                      if (p) setPrivacy((prev) => ({ ...prev, ...JSON.parse(p) }));
+                    } catch { /* ignore */ }
+                  }
+                  showToast('info', 'Changes discarded');
+                }}
+              >
+                Cancel
+              </button>
               <button className="btn-save" onClick={handleSavePrivacy}>
                 Save Settings
               </button>
@@ -772,22 +822,28 @@ export default function Settings() {
             <div className="security-item">
               <div className="security-item-info">
                 <h4>Two-Factor Authentication</h4>
-                <p>Add an extra layer of security</p>
+                <p>Coming soon — not available yet</p>
               </div>
-              <button className="btn-action">
+              <button
+                type="button"
+                className="btn-action"
+                disabled
+                title="Not available yet"
+                onClick={() => showToast('info', 'Two-factor authentication is not available yet')}
+              >
                 <Lock size={16} style={{ marginRight: 6 }} />
-                Enable
+                Coming soon
               </button>
             </div>
 
             <div className="security-item">
               <div className="security-item-info">
-                <h4>Phone Verification</h4>
-                <p>Verified: {user?.phone}</p>
+                <h4>Phone</h4>
+                <p>{user?.phone || 'No phone on file'}</p>
               </div>
-              <button className="btn-action" style={{ color: '#22c55e' }}>
-                Verified ✓
-              </button>
+              <span className="btn-action" style={{ pointerEvents: 'none', opacity: 0.8 }}>
+                {user?.phone ? 'On file' : 'Add in Account'}
+              </span>
             </div>
 
             <div className="settings-divider" />
@@ -799,10 +855,15 @@ export default function Settings() {
             <div className="security-item">
               <div className="security-item-info">
                 <h4>Active Sessions</h4>
-                <p>Manage devices where you're logged in</p>
+                <p>Session management coming soon. Use Log out from the menu to end this session.</p>
               </div>
-              <button className="btn-action">
-                View All
+              <button
+                type="button"
+                className="btn-action"
+                disabled
+                onClick={() => showToast('info', 'Session management is not available yet')}
+              >
+                Coming soon
               </button>
             </div>
 
@@ -815,12 +876,18 @@ export default function Settings() {
             <div className="danger-zone">
               <h4>Delete Account</h4>
               <p>
-                Permanently delete your account and all associated data. 
-                This action cannot be undone.
+                To permanently delete your account and data, email support@makefarmhub.com from your registered address.
+                Self-serve delete is not available yet.
               </p>
-              <button className="btn-danger">
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={() =>
+                  showToast('info', 'Email support@makefarmhub.com to request account deletion')
+                }
+              >
                 <Trash2 size={16} style={{ marginRight: 6 }} />
-                Delete Account
+                Request deletion
               </button>
             </div>
           </div>
@@ -828,7 +895,13 @@ export default function Settings() {
           {/* Payment Methods Settings */}
           <div className={`settings-section ${activeTab === 'payment' ? 'active' : ''}`}>
             <h2>Payment Methods</h2>
-            <p>Manage your payment methods for receiving payments from buyers</p>
+            <p>Add your own EcoCash, OneMoney, InnBucks, or bank details for receiving payments</p>
+
+            {paymentMethods.length === 0 && (
+              <p style={{ color: '#64748b', marginBottom: '1rem' }}>
+                No payment methods yet. Add one so buyers know where to pay you.
+              </p>
+            )}
 
             <div className="payment-methods-list">
               {paymentMethods.map((method) => (

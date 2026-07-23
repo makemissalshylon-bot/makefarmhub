@@ -197,6 +197,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     });
 
     const loadPublicCatalog = async () => {
+      // Demo catalog only when Supabase is not configured (local preview).
+      // Live empty DB must show empty marketplace — not fake inventory.
       if (!isSupabaseReady()) {
         setListings((prev) => (prev.length ? prev : DEMO_LISTINGS));
         setVehicles((prev) => (prev.length ? prev : DEMO_VEHICLES));
@@ -205,14 +207,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
       try {
         const dbListings = await listingService.getAll();
-        if (dbListings?.length) {
-          setListings(dbListings.map(mapListing));
-        } else {
-          setListings((prev) => (prev.length ? prev : DEMO_LISTINGS));
-        }
+        setListings(dbListings?.length ? dbListings.map(mapListing) : []);
       } catch (err) {
         if (import.meta.env.DEV) console.warn('Failed to load listings from Supabase:', err);
-        setListings((prev) => (prev.length ? prev : DEMO_LISTINGS));
+        setListings([]);
       }
 
       try {
@@ -233,11 +231,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             trips: v.trips,
           })));
         } else {
-          setVehicles((prev) => (prev.length ? prev : DEMO_VEHICLES));
+          setVehicles([]);
         }
       } catch (err) {
         if (import.meta.env.DEV) console.warn('Failed to load vehicles from Supabase:', err);
-        setVehicles((prev) => (prev.length ? prev : DEMO_VEHICLES));
+        setVehicles([]);
       }
     };
 

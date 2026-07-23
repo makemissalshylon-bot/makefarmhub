@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
 
-// Dynamically import based on Stripe availability
-const StripePayment = import('./StripePayment').then(m => m.default);
 const RealStripePayment = import('./RealStripePayment').then(m => m.default);
 
 interface SmartPaymentProps {
@@ -16,9 +14,8 @@ interface SmartPaymentProps {
 }
 
 /**
- * Smart Payment Component
- * Automatically switches between demo and real Stripe payments
- * based on environment configuration
+ * Card checkout — only loads real Stripe Elements when publishable key is set.
+ * Never falls back to a fake payment that credits wallets.
  */
 export default function SmartPayment(props: SmartPaymentProps) {
   const [PaymentComponent, setPaymentComponent] = useState<React.ComponentType<any> | null>(null);
@@ -28,17 +25,17 @@ export default function SmartPayment(props: SmartPaymentProps) {
   useEffect(() => {
     const loadPaymentComponent = async () => {
       try {
-        const hasStripeKey = !!import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-        
-        if (hasStripeKey) {
-          // Use real Stripe payment
-          const RealPayment = await RealStripePayment;
-          setPaymentComponent(() => RealPayment);
-        } else {
-          // Fall back to demo payment
-          const DemoPayment = await StripePayment;
-          setPaymentComponent(() => DemoPayment);
+        const hasStripeKey = !!import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY?.trim();
+
+        if (!hasStripeKey) {
+          setError(
+            'Card payments are not configured yet. Use EcoCash, OneMoney, or InnBucks, or ask the admin to add Stripe keys.'
+          );
+          return;
         }
+
+        const RealPayment = await RealStripePayment;
+        setPaymentComponent(() => RealPayment);
       } catch (err) {
         console.error('Failed to load payment component:', err);
         setError('Payment system unavailable. Please try again later.');
@@ -67,11 +64,11 @@ export default function SmartPayment(props: SmartPaymentProps) {
     return (
       <div className="stripe-payment error">
         <AlertCircle size={48} />
-        <h3>Payment Unavailable</h3>
+        <h3>Card Payment Unavailable</h3>
         <p>{error || 'Unable to load payment system.'}</p>
         {props.onCancel && (
           <button className="cancel-btn" onClick={props.onCancel}>
-            Go Back
+            Choose another method
           </button>
         )}
       </div>
