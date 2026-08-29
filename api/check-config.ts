@@ -59,6 +59,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   return res.status(200).json({
     status: 'ok',
+    // If you do not see this field on live, production is still an old deploy.
+    codeVersion: 'mfh-2026-08-29-keys',
     ready: {
       database: dbReady,
       payments: paymentsReady,
