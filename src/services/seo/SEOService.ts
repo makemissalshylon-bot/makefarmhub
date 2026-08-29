@@ -72,7 +72,9 @@ const DEFAULT_META: MetaConfig = {
 };
 
 const SITE_NAME = 'MAKEFARMHUB';
-const SITE_URL = 'https://makefarmhub.vercel.app';
+const SITE_URL =
+  (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '') ||
+  'https://makefarmhub-eosin.vercel.app';
 
 class SEOService {
   private currentMeta: MetaConfig = { ...DEFAULT_META };

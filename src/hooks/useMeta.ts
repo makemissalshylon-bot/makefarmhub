@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import type { MetaTagsProps } from '../components/SEO/MetaTags';
 
-const SITE_URL = 'https://makefarmhub.vercel.app';
+const SITE_URL =
+  (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '') ||
+  'https://makefarmhub-eosin.vercel.app';
 const DEFAULT_IMAGE = `${SITE_URL}/icons/icon-512x512.svg`;
 
 /**

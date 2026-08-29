@@ -11,7 +11,7 @@ Disallow: /wallet/
 Disallow: /settings/
 
 # Sitemap location
-Sitemap: https://makefarmhub.vercel.app/sitemap.xml
+Sitemap: https://makefarmhub-eosin.vercel.app/sitemap.xml
 
 # Crawl delay (optional)
 Crawl-delay: 1

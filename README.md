@@ -2,7 +2,7 @@
 
 **Digital Agriculture Marketplace** — Connecting farmers, buyers, and transporters across Zimbabwe.
 
-Live: [makefarmhub.vercel.app](https://makefarmhub.vercel.app)
+Live: [makefarmhub-eosin.vercel.app](https://makefarmhub-eosin.vercel.app)
 
 ## Features
 
@@ -154,10 +154,10 @@ Sign up with a role, or (in local `npm run dev` only) switch roles from Profile.
 | Task | How |
 |------|-----|
 | Stripe keys | Vercel env: `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY` |
-| Stripe webhook | Dashboard → endpoint `https://makefarmhub.vercel.app/api/webhook` → save `STRIPE_WEBHOOK_SECRET` → redeploy |
+| Stripe webhook | Dashboard → endpoint `https://makefarmhub-eosin.vercel.app/api/webhook` → save `STRIPE_WEBHOOK_SECRET` → redeploy |
 | Promote admin | Run `supabase/promote_admin.sql` in Supabase SQL Editor (replace email) |
 | Seed DB samples | Run `supabase/seed.sql` after schema migrations |
-| Config probe | `GET https://makefarmhub.vercel.app/api/check-config` (booleans only) |
+| Config probe | `GET https://makefarmhub-eosin.vercel.app/api/check-config` (booleans only) |
 | Local APIs | `npx vercel dev` (Vite alone does not serve `/api/*`) |
 
 Without Stripe keys, checkout still offers mobile money (pending verification). Without Supabase listings, the UI seeds a demo catalog so marketplace is never empty.

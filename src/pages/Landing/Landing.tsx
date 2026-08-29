@@ -50,8 +50,8 @@ export default function Landing() {
     // Add organization schema
     seoService.addOrganizationSchema({
       name: 'MAKEFARMHUB',
-      url: 'https://makefarmhub.vercel.app',
-      logo: 'https://makefarmhub.vercel.app/logo.png',
+      url: 'https://makefarmhub-eosin.vercel.app',
+      logo: 'https://makefarmhub-eosin.vercel.app/logo.png',
       description: 'Digital agriculture marketplace connecting farmers, buyers, and transporters in Zimbabwe',
       address: {
         addressLocality: 'Harare',

@@ -109,7 +109,7 @@ class EmailService {
         items,
         total,
         deliveryDate,
-        trackingUrl: `https://makefarmhub.vercel.app/orders/${orderId}`,
+        trackingUrl: `https://makefarmhub-eosin.vercel.app/orders/${orderId}`,
       },
     });
   }
@@ -135,7 +135,7 @@ class EmailService {
           month: 'long',
           day: 'numeric',
         }),
-        receiptUrl: `https://makefarmhub.vercel.app/wallet`,
+        receiptUrl: `https://makefarmhub-eosin.vercel.app/wallet`,
       },
     });
   }
@@ -158,7 +158,7 @@ class EmailService {
         status,
         message,
         trackingNumber,
-        trackingUrl: `https://makefarmhub.vercel.app/orders/${orderId}`,
+        trackingUrl: `https://makefarmhub-eosin.vercel.app/orders/${orderId}`,
       },
     });
   }
@@ -177,7 +177,7 @@ class EmailService {
         recipientName,
         senderName,
         messagePreview: messagePreview.substring(0, 200),
-        messageUrl: `https://makefarmhub.vercel.app/messages`,
+        messageUrl: `https://makefarmhub-eosin.vercel.app/messages`,
       },
     });
   }

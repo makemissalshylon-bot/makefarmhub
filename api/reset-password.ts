@@ -71,13 +71,13 @@ async function handleRequest(req: VercelRequest, res: VercelResponse) {
         expires_at: expiresAt.toISOString(),
       });
 
-      const resetLink = `${process.env.VITE_APP_URL || 'https://makefarmhub.vercel.app'}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+      const resetLink = `${process.env.VITE_APP_URL || 'https://makefarmhub-eosin.vercel.app'}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
       await sendResetEmail(email, resetLink, authUser.user_metadata?.name || 'there');
 
       // Trigger Supabase recovery email as well when possible
       try {
         await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${process.env.VITE_APP_URL || 'https://makefarmhub.vercel.app'}/reset-password`,
+          redirectTo: `${process.env.VITE_APP_URL || 'https://makefarmhub-eosin.vercel.app'}/reset-password`,
         });
       } catch { /* optional */ }
 
@@ -106,12 +106,12 @@ async function handleRequest(req: VercelRequest, res: VercelResponse) {
   }
   memoryResets.set(token, { userId: profile.id, email, expiresAt: expiresAt.getTime() });
 
-  const resetLink = `${process.env.VITE_APP_URL || 'https://makefarmhub.vercel.app'}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+  const resetLink = `${process.env.VITE_APP_URL || 'https://makefarmhub-eosin.vercel.app'}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
   await sendResetEmail(email, resetLink, profile.name || 'there');
 
   try {
     await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.VITE_APP_URL || 'https://makefarmhub.vercel.app'}/reset-password`,
+      redirectTo: `${process.env.VITE_APP_URL || 'https://makefarmhub-eosin.vercel.app'}/reset-password`,
     });
   } catch { /* optional */ }
 

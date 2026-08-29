@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://makefarmhub.vercel.app
+      url: https://makefarmhub-eosin.vercel.app
     steps:
       - uses: actions/checkout@v4
 
@@ -39,6 +39,6 @@ jobs:
         run: |
           echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "✅ Successfully deployed to production" >> $GITHUB_STEP_SUMMARY
-          echo "🔗 URL: https://makefarmhub.vercel.app" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 URL: https://makefarmhub-eosin.vercel.app" >> $GITHUB_STEP_SUMMARY
           echo "📦 Version: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "🕐 Time: $(date)" >> $GITHUB_STEP_SUMMARY

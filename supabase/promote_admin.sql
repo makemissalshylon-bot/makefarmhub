@@ -1,7 +1,7 @@
 -- Promote an existing authenticated user to platform admin.
 -- Run in Supabase SQL Editor AFTER the user has signed up once.
 --
--- 1. Sign up / log in on makefarmhub.vercel.app with your email
+-- 1. Sign up / log in on makefarmhub-eosin.vercel.app with your email
 -- 2. Replace the email below with your real account email
 -- 3. Run this script
 -- 4. Log out and log back in (or hard refresh)

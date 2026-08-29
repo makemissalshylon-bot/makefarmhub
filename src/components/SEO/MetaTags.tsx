@@ -14,7 +14,7 @@ export default function MetaTags({
   description = 'Connect with farmers, buyers, and transporters across Zimbabwe. Buy and sell fresh produce, livestock, and farm equipment.',
   keywords = 'agriculture, farming, marketplace, Zimbabwe, produce, livestock, farm equipment',
   image = '/images/og-image.png',
-  url = 'https://makefarmhub.vercel.app',
+  url = import.meta.env.VITE_APP_URL || 'https://makefarmhub-eosin.vercel.app',
   type = 'website'
 }: MetaTagsProps) {
   useEffect(() => {

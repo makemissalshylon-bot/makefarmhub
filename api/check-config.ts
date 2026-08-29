@@ -73,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       !config.stripe.secretKey && 'Add STRIPE_SECRET_KEY in Vercel → Redeploy',
       !config.stripe.publishableKey && 'Add VITE_STRIPE_PUBLISHABLE_KEY in Vercel → Redeploy',
       !config.stripe.webhookSecret &&
-        'Add Stripe webhook → https://makefarmhub.vercel.app/api/webhook → STRIPE_WEBHOOK_SECRET',
+        'Add Stripe webhook → https://makefarmhub-eosin.vercel.app/api/webhook → STRIPE_WEBHOOK_SECRET',
       !config.sendgrid.fromName && config.sendgrid.apiKey && 'Optional: SENDGRID_FROM_NAME=MakeFarmHub',
     ].filter(Boolean),
     config,
